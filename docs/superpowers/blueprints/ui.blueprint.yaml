@@ -1,0 +1,532 @@
+schemaVersion: 1
+name: morita-frontend
+description: "Morita web app — Gamer Hub (marketplace, inventory, barter, claim, history) + Developer Dashboard (publisher workspace, game management, analytics)"
+kind: "Web SPA"
+
+pages:
+  # ═══ GAMER HUB ═══
+  - name: Landing
+    route: "/"
+    components:
+      - HeroSection
+      - FeaturedListingsPreview
+      - SuiBadge
+    actions:
+      - exploreMarketplace
+      - connectWallet
+
+  - name: Inventory
+    route: "/inventory"
+    components:
+      - ItemCard
+      - EmptyState
+      - RarityBadge
+      - GameBadge
+      - TxStatusToast
+    actions:
+      - listForSale
+      - createBarterEscrow
+      - viewItemDetail
+
+  - name: Marketplace
+    route: "/marketplace"
+    components:
+      - ListingRow
+      - EscrowCard
+      - FilterBar
+      - GameBadge
+      - RarityBadge
+      - StatusBadge
+    actions:
+      - buyItem
+      - fulfillBarter
+      - applyFilters
+
+  - name: BarterDetail
+    route: "/barter/:id"
+    components:
+      - ItemDetail
+      - ConfirmModal
+      - TxStatusToast
+    actions:
+      - fulfillBarter
+      - cancelEscrow
+
+  - name: Claim
+    route: "/claim?code=xxx"
+    components:
+      - WalletButton
+      - TxStatusToast
+    actions:
+      - redeemClaimCode
+      - connectWallet
+
+  - name: History
+    route: "/history"
+    components:
+      - TxStatusToast
+    actions:
+      - loadHistory
+      - viewTxExplorer
+
+  # ═══ DEVELOPER DASHBOARD ═══
+  - name: DashboardHome
+    route: "/dashboard"
+    components:
+      - PublisherSwitcher
+      - MetricCard
+      - EmptyState
+    actions:
+      - createPublisher
+      - openPublisher
+
+  - name: PublisherWorkspace
+    route: "/dashboard/:publisher_id"
+    components:
+      - PublisherSwitcher
+      - Sidebar
+      - MetricCard
+      - StatusBadge
+    actions:
+      - navigateToTab
+
+  - name: GamesManager
+    route: "/dashboard/:publisher_id/games"
+    components:
+      - GameCard
+      - StatusBadge
+      - EmptyState
+      - Sidebar
+    actions:
+      - createGame
+      - openGame
+
+  - name: GameDetail
+    route: "/dashboard/:publisher_id/games/:game_id"
+    components:
+      - ItemCard
+      - StatusBadge
+      - ConfirmModal
+      - PublishProgressBar
+      - Sidebar
+    actions:
+      - updateGame
+      - publishGame
+      - createItem
+      - openItemDetail
+      - navigateToTab
+
+  - name: APIKeys
+    route: "/dashboard/:publisher_id/games/:game_id/api-keys"
+    components:
+      - ConfirmModal
+      - Sidebar
+    actions:
+      - generateApiKey
+      - revokeApiKey
+      - copyApiKey
+
+  - name: ItemManager
+    route: "/dashboard/:publisher_id/games/:game_id/items"
+    components:
+      - ItemCard
+      - FilterBar
+      - StatusBadge
+      - Sidebar
+    actions:
+      - createItem
+      - openItemDetail
+
+  - name: ItemDetailOrEdit
+    route: "/dashboard/:publisher_id/games/:game_id/items/:item_id"
+    components:
+      - ItemDetail
+      - Sidebar
+    actions:
+      - saveItemDraft
+      - deleteItemDraft
+
+  - name: Analytics
+    route: "/dashboard/:publisher_id/analytics"
+    components:
+      - MetricCard
+      - FilterBar
+      - Sidebar
+    actions:
+      - loadAnalytics
+      - changeTimeRange
+
+  - name: ActivityLog
+    route: "/dashboard/:publisher_id/activity"
+    components:
+      - FilterBar
+      - Sidebar
+    actions:
+      - loadActivity
+      - applyFilters
+
+  - name: Settings
+    route: "/dashboard/:publisher_id/settings"
+    components:
+      - ConfirmModal
+      - Sidebar
+    actions:
+      - saveSettings
+
+actions:
+  # ── Auth ──
+  - name: connectWallet
+    page: Landing
+    trigger: onClick
+    validation: Enoki wallets must be registered
+    onError: "display toast: 'Failed to connect wallet'"
+
+  # ── Gamer Hub ──
+  - name: exploreMarketplace
+    page: Landing
+    trigger: onClick
+    validation: none
+    onError: "redirect to landing"
+
+  - name: listForSale
+    page: Inventory
+    trigger: onClick
+    validation: "wallet must be connected; user must own the item"
+    onError: "display toast with error"
+
+  - name: createBarterEscrow
+    page: Inventory
+    trigger: onClick
+    validation: "wallet must be connected; user must own the item"
+    onError: "display toast with error"
+
+  - name: buyItem
+    page: Marketplace
+    trigger: onClick
+    validation: "wallet must be connected; payment must be available"
+    onError: "display toast with error"
+
+  - name: applyFilters
+    page: Marketplace
+    trigger: onChange
+    validation: none
+    onError: "reset to default filters"
+
+  - name: fulfillBarter
+    page: BarterDetail
+    trigger: onClick
+    validation: "wallet connected; escrow active; item matches conditions"
+    onError: "display toast: 'Cannot fulfill this barter'"
+
+  - name: cancelEscrow
+    page: BarterDetail
+    trigger: onClick
+    validation: "must be the escrow initiator; escrow must be active"
+    onError: "display toast: 'Cannot cancel this escrow'"
+
+  - name: redeemClaimCode
+    page: Claim
+    trigger: onClick
+    validation: "wallet must be connected; code must be valid"
+    onError: "display error state: invalid/expired/claimed"
+
+  - name: loadHistory
+    page: History
+    trigger: onMount
+    validation: "wallet must be connected"
+    onError: "display empty state"
+
+  # ── Developer Dashboard ──
+  - name: createPublisher
+    page: DashboardHome
+    trigger: onClick
+    validation: "wallet must be connected; name 1-100 chars"
+    onError: "display toast with validation error"
+
+  - name: openPublisher
+    page: DashboardHome
+    trigger: onClick
+    validation: publisher must exist
+    onError: "redirect to dashboard"
+
+  - name: navigateToTab
+    page: PublisherWorkspace
+    trigger: onClick
+    validation: tab route must be valid
+    onError: "redirect to workspace overview"
+
+  - name: createGame
+    page: GamesManager
+    trigger: onClick
+    validation: "name 1-200 chars; publisher must exist"
+    onError: "display toast with validation error"
+
+  - name: openGame
+    page: GamesManager
+    trigger: onClick
+    validation: game must exist
+    onError: "display toast: 'Game not found'"
+
+  - name: publishGame
+    page: GameDetail
+    trigger: onClick
+    validation: "game must be draft; must have at least 1 item; user owns publisher"
+    onError: "display modal with specific error"
+
+  - name: createItem
+    page: GameDetail
+    trigger: onClick
+    validation: game must exist; game must be draft
+    onError: "display toast: 'Cannot add items to published game'"
+
+  - name: saveItemDraft
+    page: ItemDetailOrEdit
+    trigger: onClick
+    validation: "name required; type required; rarity required; supply >= 1"
+    onError: "display form validation errors"
+
+  - name: deleteItemDraft
+    page: ItemDetailOrEdit
+    trigger: onClick
+    validation: "item must be draft; confirm modal"
+    onError: "display toast"
+
+  - name: generateApiKey
+    page: APIKeys
+    trigger: onClick
+    validation: "game must be published; user owns publisher"
+    onError: "display toast: 'Cannot generate key'"
+
+  - name: revokeApiKey
+    page: APIKeys
+    trigger: onClick
+    validation: "key must exist and be active; confirm modal"
+    onError: "display toast"
+
+  - name: loadAnalytics
+    page: Analytics
+    trigger: onMount
+    validation: "publisher must exist; user owns publisher"
+    onError: "display empty charts"
+
+  - name: changeTimeRange
+    page: Analytics
+    trigger: onClick
+    validation: none
+    onError: "reload with default range"
+
+  - name: loadActivity
+    page: ActivityLog
+    trigger: onMount
+    validation: "publisher must exist; user owns publisher"
+    onError: "display empty log"
+
+  - name: saveSettings
+    page: Settings
+    trigger: onClick
+    validation: "name 1-100 chars; logoUrl must be valid URL if provided"
+    onError: "display form validation errors"
+
+entities:
+  - entity: GameItem
+    fields:
+      - name: id
+        type: string
+        required: true
+      - name: game_id
+        type: string
+        required: true
+      - name: item_id
+        type: number
+        required: true
+      - name: item_type
+        type: string
+        required: true
+      - name: rarity
+        type: string
+        required: true
+      - name: name
+        type: string
+        required: true
+      - name: imageUrl
+        type: string
+        required: true
+      - name: description
+        type: string
+        required: false
+      - name: attributes
+        type: object
+        required: false
+      - name: supply
+        type: number
+        required: true
+
+  - entity: MarketplaceListing
+    fields:
+      - name: id
+        type: string
+        required: true
+      - name: item
+        type: GameItem
+        required: true
+      - name: price
+        type: number
+        required: false
+      - name: seller
+        type: string
+        required: true
+      - name: listingType
+        type: string
+        required: true
+      - name: royaltyBps
+        type: number
+        required: false
+
+  - entity: EscrowListing
+    fields:
+      - name: id
+        type: string
+        required: true
+      - name: offeredItem
+        type: GameItem
+        required: true
+      - name: initiator
+        type: string
+        required: true
+      - name: conditions
+        type: object
+        required: true
+      - name: counterparty
+        type: string
+        required: false
+      - name: isActive
+        type: boolean
+        required: true
+
+  - entity: Publisher
+    fields:
+      - name: id
+        type: string
+        required: true
+      - name: name
+        type: string
+        required: true
+      - name: logoUrl
+        type: string
+        required: false
+      - name: isVerified
+        type: boolean
+        required: true
+
+  - entity: Game
+    fields:
+      - name: id
+        type: number
+        required: true
+      - name: suiGameId
+        type: string
+        required: false
+      - name: name
+        type: string
+        required: true
+      - name: description
+        type: string
+        required: false
+      - name: genre
+        type: string
+        required: false
+      - name: status
+        type: string
+        required: true
+
+  - entity: ApiKey
+    fields:
+      - name: id
+        type: number
+        required: true
+      - name: prefix
+        type: string
+        required: true
+      - name: isActive
+        type: boolean
+        required: true
+      - name: lastUsedAt
+        type: string
+        required: false
+      - name: createdAt
+        type: string
+        required: true
+
+  - entity: AnalyticsData
+    fields:
+      - name: totalMinted
+        type: number
+        required: true
+      - name: totalClaimed
+        type: number
+        required: true
+      - name: activePlayers
+        type: number
+        required: true
+      - name: txVolume
+        type: number
+        required: true
+
+  - entity: TxEvent
+    fields:
+      - name: id
+        type: number
+        required: true
+      - name: txHash
+        type: string
+        required: true
+      - name: eventType
+        type: string
+        required: true
+      - name: description
+        type: string
+        required: true
+      - name: timestamp
+        type: string
+        required: true
+
+  - entity: ClaimCode
+    fields:
+      - name: code
+        type: string
+        required: true
+      - name: isValid
+        type: boolean
+        required: true
+      - name: itemPreview
+        type: GameItem
+        required: false
+      - name: errorMessage
+        type: string
+        required: false
+
+states:
+  - name: loading
+    type: loading
+  - name: emptyInventory
+    type: empty
+  - name: emptyGames
+    type: empty
+  - name: emptyPublishers
+    type: empty
+  - name: emptyListings
+    type: empty
+  - name: claimInvalid
+    type: error
+  - name: claimExpired
+    type: error
+  - name: claimClaimed
+    type: error
+  - name: buySuccess
+    type: success
+  - name: barterSuccess
+    type: success
+  - name: publishSuccess
+    type: success
+  - name: claimSuccess
+    type: success

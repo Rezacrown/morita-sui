@@ -1,0 +1,9 @@
+Aku ingin membnuat sebuah project untuk hackathon sui overflow 2026 untuk detail soal hackathonnya bisa lihat disini kalo kamu bisa https://mystenlabs.notion.site/overflow-2026-handbook
+
+
+Aku sebelumnya udah ada sedikit diskusi dengan gemini pada platformnya, dan ini adalah context yang aku minta dia rangkumin untuk sedikit gambaran pembahasan kita C:\Users\aryhi\Desktop\hackathons\sui-overflow\Context-from-gemini.md
+
+AKu mau agar semua hal bisa dibreakdown sampai jelas sejelas2 nya dari bisnis level sampai teknikal level karena project ini akan jadi penentu apakah kita bakal menang atau tidak
+
+
+note: untuk tracknya kita hanya boleh pilih 1 saja, dan itu mungkin antara defi & payment track atau wallrus track, tapi kemungkinan besar project ini arahnya ke defi & payment track sih

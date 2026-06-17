@@ -1,0 +1,635 @@
+schemaVersion: 1
+name: morita-contracts
+description: Sui Move smart contracts for Morita — cross-game inventory & commerce protocol
+language: Move
+framework: Sui
+kind: Solana
+
+events:
+  - name: PublisherCreated
+    module: registry
+    fields:
+      - name: publisher_id
+        type: "ID"
+        indexed: true
+      - name: owner
+        type: address
+        indexed: true
+      - name: name
+        type: String
+        indexed: false
+
+  - name: GameCreated
+    module: registry
+    fields:
+      - name: game_id
+        type: "ID"
+        indexed: true
+      - name: publisher_id
+        type: "ID"
+        indexed: true
+      - name: name
+        type: String
+        indexed: false
+
+  - name: GameUpdated
+    module: registry
+    fields:
+      - name: game_id
+        type: "ID"
+        indexed: true
+      - name: new_name
+        type: String
+        indexed: false
+
+  - name: PublisherVerified
+    module: registry
+    fields:
+      - name: publisher_id
+        type: "ID"
+        indexed: true
+
+  - name: GamePaused
+    module: registry
+    fields:
+      - name: game_id
+        type: "ID"
+        indexed: true
+
+  - name: GameResumed
+    module: registry
+    fields:
+      - name: game_id
+        type: "ID"
+        indexed: true
+
+  - name: ItemMinted
+    module: item
+    fields:
+      - name: item_id
+        type: "ID"
+        indexed: true
+      - name: game_id
+        type: "ID"
+        indexed: true
+      - name: recipient
+        type: address
+        indexed: true
+      - name: blob_id
+        type: String
+        indexed: false
+
+  - name: ItemBurned
+    module: item
+    fields:
+      - name: item_id
+        type: "ID"
+        indexed: true
+      - name: game_id
+        type: "ID"
+        indexed: true
+
+  - name: ItemListed
+    module: kiosk_ext
+    fields:
+      - name: item_id
+        type: "ID"
+        indexed: true
+      - name: kiosk_id
+        type: "ID"
+        indexed: true
+      - name: price
+        type: u64
+        indexed: false
+      - name: royalty_bps
+        type: "Option<u64>"
+        indexed: false
+
+  - name: ItemSold
+    module: kiosk_ext
+    fields:
+      - name: item_id
+        type: "ID"
+        indexed: true
+      - name: seller
+        type: address
+        indexed: true
+      - name: buyer
+        type: address
+        indexed: true
+      - name: price
+        type: u64
+        indexed: false
+
+  - name: EscrowCreated
+    module: escrow
+    fields:
+      - name: escrow_id
+        type: "ID"
+        indexed: true
+      - name: initiator
+        type: address
+        indexed: true
+      - name: offer_item_id
+        type: "ID"
+        indexed: true
+      - name: counterparty
+        type: "Option<address>"
+        indexed: false
+
+  - name: EscrowFulfilled
+    module: escrow
+    fields:
+      - name: escrow_id
+        type: "ID"
+        indexed: true
+      - name: fulfiller
+        type: address
+        indexed: true
+
+  - name: EscrowCancelled
+    module: escrow
+    fields:
+      - name: escrow_id
+        type: "ID"
+        indexed: true
+
+operations:
+  # ── registry.move ──
+  - name: createPublisher
+    type: mutation
+    target: registry.move
+    function: "create_publisher(name: String, ctx: &mut TxContext)"
+    description: Create a new Publisher on-chain (self-service, anyone can call)
+    input:
+      fields:
+        - name: name
+          type: String
+          required: true
+    validations: []
+    output:
+      fields:
+        - name: publisher_id
+          type: ID
+          required: true
+    errors:
+      - name: EPUBLISHER_EXISTS
+        description: Publisher with this name already exists for this address
+
+  - name: verifyPublisher
+    type: mutation
+    target: registry.move
+    function: "verify_publisher(admin: &AdminCap, publisher_id: ID, ctx: &mut TxContext)"
+    description: Admin toggles verification status of a publisher (Flow A)
+    input:
+      fields:
+        - name: publisher_id
+          type: ID
+          required: true
+    validations:
+      - step: 1
+        name: onlyAdmin
+        type: auth
+        description: Caller must hold AdminCap
+        onFail: E_UNAUTHORIZED
+    output:
+      fields: []
+    errors:
+      - name: E_UNAUTHORIZED
+        description: Caller does not hold AdminCap
+
+  - name: createGame
+    type: mutation
+    target: registry.move
+    function: "create_game(publisher: &Publisher, name: String, ctx: &mut TxContext)"
+    description: Create a new Game under a Publisher, returns Game + GameCapability (Flow B)
+    input:
+      fields:
+        - name: publisher
+          type: "&Publisher"
+          required: true
+        - name: name
+          type: String
+          required: true
+    validations:
+      - step: 1
+        name: onlyPublisherOwner
+        type: auth
+        description: Caller must be the Publisher owner
+        onFail: E_UNAUTHORIZED
+    output:
+      fields:
+        - name: game
+          type: Game
+          required: true
+        - name: capability
+          type: GameCapability
+          required: true
+    errors:
+      - name: E_UNAUTHORIZED
+        description: Caller is not the publisher owner
+
+  - name: updateGame
+    type: mutation
+    target: registry.move
+    function: "update_game(cap: &GameCapability, new_name: String, ctx: &mut TxContext)"
+    description: Update game metadata (name) — held by platform (Flow A)
+    input:
+      fields:
+        - name: new_name
+          type: String
+          required: true
+    validations:
+      - step: 1
+        name: hasGameCapability
+        type: auth
+        description: Caller must hold GameCapability for this game
+        onFail: E_UNAUTHORIZED
+    output:
+      fields: []
+    errors:
+      - name: E_UNAUTHORIZED
+        description: Missing GameCapability
+
+  - name: pauseGame
+    type: mutation
+    target: registry.move
+    function: "pause_game(admin: &AdminCap, game_id: ID, ctx: &mut TxContext)"
+    description: Admin pauses a game (emergency control, Flow A)
+    input:
+      fields:
+        - name: game_id
+          type: ID
+          required: true
+    validations:
+      - step: 1
+        name: onlyAdmin
+        type: auth
+        description: Caller must hold AdminCap
+        onFail: E_UNAUTHORIZED
+    output:
+      fields: []
+    errors:
+      - name: E_UNAUTHORIZED
+        description: Missing AdminCap
+
+  - name: resumeGame
+    type: mutation
+    target: registry.move
+    function: "resume_game(admin: &AdminCap, game_id: ID, ctx: &mut TxContext)"
+    description: Admin resumes a paused game (Flow A)
+    input:
+      fields:
+        - name: game_id
+          type: ID
+          required: true
+    validations:
+      - step: 1
+        name: onlyAdmin
+        type: auth
+        description: Caller must hold AdminCap
+        onFail: E_UNAUTHORIZED
+    output:
+      fields: []
+    errors:
+      - name: E_UNAUTHORIZED
+        description: Missing AdminCap
+
+  # ── item.move ──
+  - name: mintItem
+    type: mutation
+    target: item.move
+    function: "mint(cap: &GameCapability, item_id: u64, item_type: String, rarity: String, blob_id: String, supply: Option<u64>, recipient: address, ctx: &mut TxContext)"
+    description: Mint a GameItem to a recipient (Flow A — platform calls with GameCapability)
+    input:
+      fields:
+        - name: item_id
+          type: u64
+          required: true
+        - name: item_type
+          type: String
+          required: true
+        - name: rarity
+          type: String
+          required: true
+        - name: blob_id
+          type: String
+          required: true
+        - name: supply
+          type: "Option<u64>"
+          required: true
+        - name: recipient
+          type: address
+          required: true
+    validations:
+      - step: 1
+        name: hasGameCapability
+        type: auth
+        description: Caller must hold GameCapability for the item's game
+        onFail: E_UNAUTHORIZED
+      - step: 2
+        name: itemNotMinted
+        type: state
+        description: item_id must not have already been minted (for NFTs)
+        onFail: E_ITEM_EXISTS
+    output:
+      fields:
+        - name: game_item
+          type: GameItem
+          required: true
+    errors:
+      - name: E_UNAUTHORIZED
+        description: Missing GameCapability
+      - name: E_ITEM_EXISTS
+        description: Item with this item_id already minted (NFT duplicate)
+
+  - name: burnItem
+    type: mutation
+    target: item.move
+    function: "burn(cap: &GameCapability, item: GameItem, ctx: &mut TxContext)"
+    description: Destroy a GameItem (Flow A — platform calls)
+    input:
+      fields:
+        - name: item
+          type: GameItem
+          required: true
+    validations:
+      - step: 1
+        name: hasGameCapability
+        type: auth
+        description: GameCapability must match the item's game_id
+        onFail: E_UNAUTHORIZED
+    output:
+      fields: []
+    errors:
+      - name: E_UNAUTHORIZED
+        description: GameCapability mismatch
+
+  # ── kiosk_ext.move ──
+  - name: listWithRoyalty
+    type: mutation
+    target: kiosk_ext.move
+    function: "list_with_royalty(item: GameItem, kiosk: &mut Kiosk, kiosk_owner_cap: &KioskOwnerCapability, price: Coin<SUI>, royalty_bps: Option<u64>, ctx: &mut TxContext)"
+    description: List a GameItem for sale in Kiosk with optional royalty (Flow B)
+    input:
+      fields:
+        - name: item
+          type: GameItem
+          required: true
+        - name: kiosk
+          type: "&mut Kiosk"
+          required: true
+        - name: kiosk_owner_cap
+          type: "&KioskOwnerCapability"
+          required: true
+        - name: price
+          type: "Coin<SUI>"
+          required: true
+        - name: royalty_bps
+          type: "Option<u64>"
+          required: false
+    validations:
+      - step: 1
+        name: ownsItem
+        type: auth
+        description: Caller must own the item
+        onFail: E_UNAUTHORIZED
+      - step: 2
+        name: validRoyalty
+        type: input
+        description: If provided, royalty_bps must be between 0 and 10000
+        onFail: E_INVALID_ROYALTY
+    output:
+      fields: []
+    errors:
+      - name: E_UNAUTHORIZED
+        description: Item not owned by caller
+      - name: E_INVALID_ROYALTY
+        description: Royalty basis points out of range
+
+  - name: buyItem
+    type: mutation
+    target: kiosk_ext.move
+    function: "buy_item(kiosk: &mut Kiosk, kiosk_owner_cap: &KioskOwnerCapability, item_id: ID, payment: Coin<SUI>, ctx: &mut TxContext)"
+    description: Purchase a listed item from Kiosk (Flow B)
+    input:
+      fields:
+        - name: kiosk
+          type: "&mut Kiosk"
+          required: true
+        - name: kiosk_owner_cap
+          type: "&KioskOwnerCapability"
+          required: true
+        - name: item_id
+          type: ID
+          required: true
+        - name: payment
+          type: "Coin<SUI>"
+          required: true
+    validations:
+      - step: 1
+        name: itemListed
+        type: state
+        description: Item must be listed in the Kiosk
+        onFail: E_NOT_LISTED
+      - step: 2
+        name: correctPrice
+        type: business
+        description: Payment must match the listing price
+        onFail: E_PRICE_MISMATCH
+    output:
+      fields:
+        - name: item
+          type: GameItem
+          required: true
+    errors:
+      - name: E_NOT_LISTED
+        description: Item not found in Kiosk
+      - name: E_PRICE_MISMATCH
+        description: Payment does not match listed price
+
+  # ── escrow.move ──
+  - name: lockItemForAny
+    type: mutation
+    target: escrow.move
+    function: "lock_item_for_any(item: GameItem, conditions: EscrowConditions, ctx: &mut TxContext)"
+    description: Lock an item in escrow for public barter (Flow B)
+    input:
+      fields:
+        - name: item
+          type: GameItem
+          required: true
+        - name: conditions
+          type: EscrowConditions
+          required: true
+    validations:
+      - step: 1
+        name: ownsItem
+        type: auth
+        description: Caller must own the item
+        onFail: E_UNAUTHORIZED
+    output:
+      fields:
+        - name: escrow
+          type: Escrow
+          required: true
+    errors:
+      - name: E_UNAUTHORIZED
+        description: Item not owned by caller
+
+  - name: lockItemForTarget
+    type: mutation
+    target: escrow.move
+    function: "lock_item_for_target(item: GameItem, counterparty: address, conditions: EscrowConditions, ctx: &mut TxContext)"
+    description: Lock an item in escrow for direct barter to a specific address (Flow B)
+    input:
+      fields:
+        - name: item
+          type: GameItem
+          required: true
+        - name: counterparty
+          type: address
+          required: true
+        - name: conditions
+          type: EscrowConditions
+          required: true
+    validations:
+      - step: 1
+        name: ownsItem
+        type: auth
+        description: Caller must own the item
+        onFail: E_UNAUTHORIZED
+    output:
+      fields:
+        - name: escrow
+          type: Escrow
+          required: true
+    errors:
+      - name: E_UNAUTHORIZED
+        description: Item not owned by caller
+
+  - name: fulfillEscrow
+    type: mutation
+    target: escrow.move
+    function: "fulfill_escrow(escrow: &mut Escrow, my_item: GameItem, ctx: &mut TxContext)"
+    description: Fulfill an escrow with instant 1:1 swap (Flow B)
+    input:
+      fields:
+        - name: escrow
+          type: "&mut Escrow"
+          required: true
+        - name: my_item
+          type: GameItem
+          required: true
+    validations:
+      - step: 1
+        name: escrowActive
+        type: state
+        description: Escrow must be in active state
+        onFail: E_ESCROW_INACTIVE
+      - step: 2
+        name: ownsItem
+        type: auth
+        description: Caller must own my_item
+        onFail: E_UNAUTHORIZED
+      - step: 3
+        name: matchesConditions
+        type: business
+        description: my_item must match escrow conditions
+        onFail: E_CONDITION_MISMATCH
+      - step: 4
+        name: notSelf
+        type: business
+        description: Fulfiller cannot be the initiator
+        onFail: E_SELF_FULFILL
+    output:
+      fields:
+        - name: received_item
+          type: GameItem
+          required: true
+    errors:
+      - name: E_ESCROW_INACTIVE
+        description: Escrow already fulfilled or cancelled
+      - name: E_UNAUTHORIZED
+        description: Item not owned by caller
+      - name: E_CONDITION_MISMATCH
+        description: Item does not match escrow conditions
+      - name: E_SELF_FULFILL
+        description: Cannot fulfill own escrow
+
+  - name: fulfillEscrowWithValue
+    type: mutation
+    target: escrow.move
+    function: "fulfill_escrow_with_value(escrow: &mut Escrow, my_item: GameItem, token_topup: Coin<SUI>, ctx: &mut TxContext)"
+    description: Fulfill escrow with SUI top-up to cover value gap (Flow B)
+    input:
+      fields:
+        - name: escrow
+          type: "&mut Escrow"
+          required: true
+        - name: my_item
+          type: GameItem
+          required: true
+        - name: token_topup
+          type: "Coin<SUI>"
+          required: true
+    validations:
+      - step: 1
+        name: escrowActive
+        type: state
+        description: Escrow must be active
+        onFail: E_ESCROW_INACTIVE
+      - step: 2
+        name: ownsItem
+        type: auth
+        description: Caller must own my_item
+        onFail: E_UNAUTHORIZED
+      - step: 3
+        name: notSelf
+        type: business
+        description: Fulfiller cannot be initiator
+        onFail: E_SELF_FULFILL
+    output:
+      fields:
+        - name: received_item
+          type: GameItem
+          required: true
+    errors:
+      - name: E_ESCROW_INACTIVE
+        description: Escrow already fulfilled or cancelled
+      - name: E_UNAUTHORIZED
+        description: Item not owned
+      - name: E_SELF_FULFILL
+        description: Cannot fulfill own escrow
+
+  - name: cancelEscrow
+    type: mutation
+    target: escrow.move
+    function: "cancel_escrow(escrow: &mut Escrow, ctx: &mut TxContext)"
+    description: Cancel own escrow, return item to initiator (Flow B)
+    input:
+      fields:
+        - name: escrow
+          type: "&mut Escrow"
+          required: true
+    validations:
+      - step: 1
+        name: isInitiator
+        type: auth
+        description: Only the initiator can cancel
+        onFail: E_UNAUTHORIZED
+      - step: 2
+        name: escrowActive
+        type: state
+        description: Escrow must be active
+        onFail: E_ESCROW_INACTIVE
+    output:
+      fields:
+        - name: returned_item
+          type: GameItem
+          required: true
+    errors:
+      - name: E_UNAUTHORIZED
+        description: Not the escrow initiator
+      - name: E_ESCROW_INACTIVE
+        description: Escrow already fulfilled or cancelled

@@ -1,0 +1,497 @@
+schemaVersion: 1
+name: morita-database
+description: PostgreSQL database for Morita — gamedev accounts, game/item templates, claim codes, event indexing, escrow state
+type: SQL
+engine: PostgreSQL
+
+collections:
+  - name: gamedevs
+    description: Game developer accounts (linked to Sui address via Enoki zkLogin)
+    fields:
+      - name: id
+        type: serial
+        required: true
+        unique: true
+      - name: sui_address
+        type: varchar
+        required: true
+        unique: true
+      - name: email
+        type: varchar
+        required: false
+      - name: name
+        type: varchar
+        required: false
+      - name: created_at
+        type: timestamp
+        required: true
+        default: "now()"
+    indexes:
+      - fields:
+          - sui_address
+        unique: true
+
+  - name: publishers
+    description: Publisher workspaces (mirrors on-chain Publisher objects)
+    fields:
+      - name: id
+        type: serial
+        required: true
+        unique: true
+      - name: sui_publisher_id
+        type: varchar
+        required: true
+        unique: true
+      - name: dev_id
+        type: integer
+        required: true
+        relation: gamedevs.id
+      - name: name
+        type: varchar
+        required: true
+      - name: logo_url
+        type: varchar
+        required: false
+      - name: is_verified
+        type: boolean
+        required: true
+        default: false
+      - name: created_at
+        type: timestamp
+        required: true
+        default: "now()"
+    indexes:
+      - fields:
+          - sui_publisher_id
+        unique: true
+      - fields:
+          - dev_id
+        unique: false
+    relationships:
+      - type: belongsTo
+        target: gamedevs
+        via: dev_id
+      - type: hasMany
+        target: games
+        via: publisher_id
+
+  - name: games
+    description: Game records — draft (DB only) or published (on-chain Game exists)
+    fields:
+      - name: id
+        type: serial
+        required: true
+        unique: true
+      - name: sui_game_id
+        type: varchar
+        required: false
+        unique: true
+        description: null when draft, set on publish
+      - name: publisher_id
+        type: integer
+        required: true
+        relation: publishers.id
+      - name: name
+        type: varchar
+        required: true
+      - name: description
+        type: text
+        required: false
+      - name: genre
+        type: varchar
+        required: false
+      - name: website_url
+        type: varchar
+        required: false
+      - name: status
+        type: varchar
+        required: true
+        default: draft
+        description: "draft | published"
+      - name: game_capability_id
+        type: varchar
+        required: false
+        description: On-chain GameCapability object ID
+      - name: created_at
+        type: timestamp
+        required: true
+        default: "now()"
+    indexes:
+      - fields:
+          - sui_game_id
+        unique: true
+      - fields:
+          - publisher_id
+        unique: false
+      - fields:
+          - status
+        unique: false
+    relationships:
+      - type: belongsTo
+        target: publishers
+        via: publisher_id
+      - type: hasMany
+        target: item_templates
+        via: game_id
+      - type: hasMany
+        target: api_keys
+        via: game_id
+      - type: hasMany
+        target: claim_codes
+        via: game_id
+
+  - name: user_kiosks
+    description: Mapping of Sui address to their Kiosk (created automatically on first marketplace action)
+    fields:
+      - name: id
+        type: serial
+        required: true
+        unique: true
+      - name: sui_address
+        type: varchar
+        required: true
+        unique: true
+      - name: kiosk_id
+        type: varchar
+        required: true
+        unique: true
+      - name: kiosk_owner_cap_id
+        type: varchar
+        required: true
+      - name: created_at
+        type: timestamp
+        required: true
+        default: "now()"
+    indexes:
+      - fields:
+          - sui_address
+        unique: true
+      - fields:
+          - kiosk_id
+        unique: true
+
+  - name: api_keys
+    description: API keys for game server authentication (hashed)
+    fields:
+      - name: id
+        type: serial
+        required: true
+        unique: true
+      - name: game_id
+        type: integer
+        required: true
+        relation: games.id
+      - name: key_hash
+        type: varchar
+        required: true
+        unique: true
+      - name: key_prefix
+        type: varchar
+        required: true
+        description: "e.g. morita_sk_****abcd (for display)"
+      - name: is_active
+        type: boolean
+        required: true
+        default: true
+      - name: last_used_at
+        type: timestamp
+        required: false
+      - name: created_at
+        type: timestamp
+        required: true
+        default: "now()"
+    indexes:
+      - fields:
+          - key_hash
+        unique: true
+      - fields:
+          - game_id
+        unique: false
+    relationships:
+      - type: belongsTo
+        target: games
+        via: game_id
+
+  - name: item_templates
+    description: Item templates/blueprints — draft (DB only) or published (exists as on-chain GameItem schema)
+    fields:
+      - name: id
+        type: serial
+        required: true
+        unique: true
+      - name: game_id
+        type: integer
+        required: true
+        relation: games.id
+      - name: sui_item_id
+        type: varchar
+        required: false
+        description: null when draft
+      - name: name
+        type: varchar
+        required: true
+      - name: item_type
+        type: varchar
+        required: true
+      - name: rarity
+        type: varchar
+        required: true
+      - name: description
+        type: text
+        required: false
+      - name: image_blob_id
+        type: varchar
+        required: false
+        description: Walrus blob ID for image asset
+      - name: metadata_blob_id
+        type: varchar
+        required: false
+        description: Walrus blob ID for full metadata JSON
+      - name: supply
+        type: integer
+        required: true
+        default: 1
+        description: 1 for NFT, >1 for fungible
+      - name: is_nft
+        type: boolean
+        required: true
+        default: true
+      - name: attributes
+        type: jsonb
+        required: false
+        description: Arbitrary key-value pairs
+      - name: status
+        type: varchar
+        required: true
+        default: draft
+        description: "draft | published"
+      - name: created_at
+        type: timestamp
+        required: true
+        default: "now()"
+    indexes:
+      - fields:
+          - game_id
+        unique: false
+      - fields:
+          - status
+        unique: false
+    relationships:
+      - type: belongsTo
+        target: games
+        via: game_id
+      - type: hasMany
+        target: claim_codes
+        via: item_template_id
+
+  - name: claim_codes
+    description: Claim codes generated by game servers — redeemed by players to mint on-chain items
+    fields:
+      - name: id
+        type: serial
+        required: true
+        unique: true
+      - name: code
+        type: varchar
+        required: true
+        unique: true
+      - name: game_id
+        type: integer
+        required: true
+        relation: games.id
+      - name: item_template_id
+        type: integer
+        required: true
+        relation: item_templates.id
+      - name: recipient_identifier
+        type: varchar
+        required: false
+        description: Game-internal player identifier (for logging)
+      - name: expires_at
+        type: timestamp
+        required: true
+        description: "now() + 24h"
+      - name: claimed_at
+        type: timestamp
+        required: false
+      - name: claimed_by
+        type: varchar
+        required: false
+        description: Sui address of claimer
+      - name: created_at
+        type: timestamp
+        required: true
+        default: "now()"
+    indexes:
+      - fields:
+          - code
+        unique: true
+      - fields:
+          - expires_at
+        unique: false
+      - fields:
+          - claimed_at
+        unique: false
+    relationships:
+      - type: belongsTo
+        target: games
+        via: game_id
+      - type: belongsTo
+        target: item_templates
+        via: item_template_id
+
+  - name: escrow_index
+    description: Active escrow state for marketplace "For Barter" tab browsing
+    fields:
+      - name: id
+        type: serial
+        required: true
+        unique: true
+      - name: escrow_id
+        type: varchar
+        required: true
+        unique: true
+        description: On-chain escrow object ID
+      - name: initiator_address
+        type: varchar
+        required: true
+      - name: offer_game_id
+        type: integer
+        required: false
+        relation: games.id
+      - name: offer_item_blob_id
+        type: varchar
+        required: false
+        description: Walrus blob ID for offered item metadata
+      - name: conditions_json
+        type: jsonb
+        required: true
+        description: Serialized EscrowConditions
+      - name: is_active
+        type: boolean
+        required: true
+        default: true
+      - name: created_at
+        type: timestamp
+        required: true
+        default: "now()"
+      - name: fulfilled_at
+        type: timestamp
+        required: false
+      - name: cancelled_at
+        type: timestamp
+        required: false
+    indexes:
+      - fields:
+          - escrow_id
+        unique: true
+      - fields:
+          - is_active
+        unique: false
+      - fields:
+          - offer_game_id
+        unique: false
+
+  - name: item_cache
+    description: Cached Walrus metadata for fast marketplace/inventory queries
+    fields:
+      - name: id
+        type: serial
+        required: true
+        unique: true
+      - name: blob_id
+        type: varchar
+        required: true
+        unique: true
+        description: Walrus metadata blob ID
+      - name: game_id
+        type: integer
+        required: true
+        relation: games.id
+      - name: name
+        type: varchar
+        required: true
+      - name: description
+        type: text
+        required: false
+      - name: image_blob_id
+        type: varchar
+        required: true
+      - name: tags
+        type: jsonb
+        required: false
+      - name: attributes
+        type: jsonb
+        required: false
+      - name: created_at
+        type: timestamp
+        required: true
+        default: "now()"
+    indexes:
+      - fields:
+          - blob_id
+        unique: true
+      - fields:
+          - game_id
+        unique: false
+    relationships:
+      - type: belongsTo
+        target: games
+        via: game_id
+
+  - name: tx_events
+    description: All on-chain events indexed from gRPC streaming for activity feeds and analytics
+    fields:
+      - name: id
+        type: serial
+        required: true
+        unique: true
+      - name: tx_hash
+        type: varchar
+        required: true
+      - name: event_type
+        type: varchar
+        required: true
+        description: "PublisherCreated, ItemMinted, ItemSold, EscrowFulfilled, etc."
+      - name: game_id
+        type: integer
+        required: false
+        relation: games.id
+      - name: from_address
+        type: varchar
+        required: false
+      - name: to_address
+        type: varchar
+        required: false
+      - name: item_blob_id
+        type: varchar
+        required: false
+        description: For looking up cached metadata
+      - name: metadata
+        type: jsonb
+        required: false
+        description: Extra event-specific data
+      - name: created_at
+        type: timestamp
+        required: true
+        default: "now()"
+    indexes:
+      - fields:
+          - event_type
+        unique: false
+      - fields:
+          - game_id
+        unique: false
+      - fields:
+          - from_address
+        unique: false
+      - fields:
+          - to_address
+        unique: false
+      - fields:
+          - created_at
+        unique: false
+    relationships:
+      - type: belongsTo
+        target: games
+        via: game_id

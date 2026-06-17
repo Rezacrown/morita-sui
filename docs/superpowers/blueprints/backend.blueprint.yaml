@@ -1,0 +1,750 @@
+schemaVersion: 1
+name: morita-backend
+description: Next.js backend — Hono external API + Server Actions internal API
+language: TypeScript
+framework: "Next.js + Hono"
+kind: REST
+
+operations:
+  # ═══════════════════════════════════════════
+  # EXTERNAL API — consumed by game servers
+  # ═══════════════════════════════════════════
+
+  - name: apiMintItem
+    type: mutation
+    method: POST
+    endpoint: "/api/v1/game/:game_id/item/mint"
+    description: Create a claim code for a player to redeem later. Does NOT mint on-chain. Called by game server.
+    input:
+      fields:
+        - name: item_template_id
+          type: string
+          required: true
+          description: Template ID from gamedev's dashboard
+        - name: recipient_identifier
+          type: string
+          required: true
+          description: Player identifier (game-internal username/email)
+        - name: quantity
+          type: integer
+          required: false
+          description: Default 1
+    validations:
+      - step: 1
+        name: validApiKey
+        type: auth
+        description: Bearer token must be a valid, active API key belonging to this game
+        onFail: "401 UNAUTHORIZED"
+      - step: 2
+        name: gameActive
+        type: state
+        description: Game must have status 'published' and be active on-chain
+        onFail: "403 GAME_INACTIVE"
+      - step: 3
+        name: templateExists
+        type: input
+        description: item_template_id must reference a published item template for this game
+        onFail: "404 TEMPLATE_NOT_FOUND"
+    output:
+      fields:
+        - name: success
+          type: boolean
+          required: true
+        - name: claim_url
+          type: string
+          required: true
+        - name: expires_at
+          type: string
+          required: true
+    errors:
+      - name: "401 UNAUTHORIZED"
+        description: Invalid or revoked API key
+      - name: "403 GAME_INACTIVE"
+        description: Game is not published or paused
+      - name: "404 TEMPLATE_NOT_FOUND"
+        description: Item template not found or not published
+
+  - name: apiBurnItem
+    type: mutation
+    method: POST
+    endpoint: "/api/v1/game/:game_id/item/burn"
+    description: Burn an item from a player's address
+    input:
+      fields:
+        - name: item_id
+          type: string
+          required: true
+          description: On-chain item object ID
+        - name: player_address
+          type: string
+          required: true
+          description: Sui address of the player
+    validations:
+      - step: 1
+        name: validApiKey
+        type: auth
+        description: Bearer token must be valid for this game
+        onFail: "401 UNAUTHORIZED"
+      - step: 2
+        name: gameActive
+        type: state
+        description: Game must be active
+        onFail: "403 GAME_INACTIVE"
+    output:
+      fields:
+        - name: success
+          type: boolean
+          required: true
+        - name: tx_digest
+          type: string
+          required: true
+    errors:
+      - name: "401 UNAUTHORIZED"
+        description: Invalid API key
+      - name: "403 GAME_INACTIVE"
+        description: Game not active
+
+  - name: apiGetInventory
+    type: query
+    method: GET
+    endpoint: "/api/v1/game/:game_id/inventory/:address"
+    description: Query items owned by a specific Sui address for this game
+    input:
+      fields:
+        - name: address
+          type: string
+          required: true
+          description: Sui address (path param)
+    validations:
+      - step: 1
+        name: validApiKey
+        type: auth
+        description: API key must belong to this game
+        onFail: "401 UNAUTHORIZED"
+    output:
+      fields:
+        - name: items
+          type: array
+          required: true
+        - name: total
+          type: integer
+          required: true
+
+  - name: apiGetItemDetail
+    type: query
+    method: GET
+    endpoint: "/api/v1/game/:game_id/item/:item_id"
+    description: Query detail of a specific item
+    input:
+      fields:
+        - name: item_id
+          type: string
+          required: true
+          description: On-chain item object ID (path param)
+    validations:
+      - step: 1
+        name: validApiKey
+        type: auth
+        description: API key must belong to this game
+        onFail: "401 UNAUTHORIZED"
+    output:
+      fields:
+        - name: item
+          type: object
+          required: true
+
+  # ═══════════════════════════════════════════
+  # SERVER ACTIONS — consumed by platform frontend
+  # ═══════════════════════════════════════════
+
+  # ── Auth ──
+  - name: loginWithEnoki
+    type: mutation
+    method: POST
+    endpoint: "<server action>"
+    description: Initiate Enoki wallet connection. Frontend handles via Enoki SDK; server validates session.
+    input:
+      fields:
+        - name: suiAddress
+          type: string
+          required: true
+    validations:
+      - step: 1
+        name: enokiConnected
+        type: auth
+        description: Enoki wallet must be connected client-side
+        onFail: AUTH_REQUIRED
+    output:
+      fields:
+        - name: sessionToken
+          type: string
+          required: true
+
+  # ── Publisher ──
+  - name: createPublisher
+    type: mutation
+    method: POST
+    endpoint: "<server action>"
+    description: Create a publisher on-chain via Flow B (GameDev signs with Enoki auto-sign)
+    input:
+      fields:
+        - name: name
+          type: string
+          required: true
+        - name: logoUrl
+          type: string
+          required: false
+    validations:
+      - step: 1
+        name: authenticated
+        type: auth
+        description: User must have active Enoki session
+        onFail: AUTH_REQUIRED
+      - step: 2
+        name: nameNotEmpty
+        type: input
+        description: Publisher name must be 1-100 chars
+        onFail: INVALID_NAME
+    output:
+      fields:
+        - name: publisherId
+          type: string
+          required: true
+
+  - name: getMyPublishers
+    type: query
+    method: GET
+    endpoint: "<server action>"
+    description: List publishers owned by current user
+    validations:
+      - step: 1
+        name: authenticated
+        type: auth
+        description: User must be logged in
+        onFail: AUTH_REQUIRED
+    output:
+      fields:
+        - name: publishers
+          type: array
+          required: true
+
+  # ── Game (Draft CRUD) ──
+  - name: createGame
+    type: mutation
+    method: POST
+    endpoint: "<server action>"
+    description: Create a draft game in DB only
+    input:
+      fields:
+        - name: publisherId
+          type: string
+          required: true
+        - name: name
+          type: string
+          required: true
+        - name: description
+          type: string
+          required: false
+        - name: genre
+          type: string
+          required: false
+        - name: websiteUrl
+          type: string
+          required: false
+    validations:
+      - step: 1
+        name: ownsPublisher
+        type: auth
+        description: User must own the publisher
+        onFail: UNAUTHORIZED
+      - step: 2
+        name: nameNotEmpty
+        type: input
+        description: Game name 1-200 chars
+        onFail: INVALID_NAME
+    output:
+      fields:
+        - name: gameId
+          type: integer
+          required: true
+
+  - name: publishGame
+    type: mutation
+    method: POST
+    endpoint: "<server action>"
+    description: Publish game on-chain via Flow B. Uploads all assets to Walrus, deploys Game + GameCapability on-chain.
+    input:
+      fields:
+        - name: gameId
+          type: integer
+          required: true
+        - name: txBytes
+          type: string
+          required: true
+          description: "Transaction kind bytes from frontend (Flow B step 1)"
+    validations:
+      - step: 1
+        name: ownsPublisher
+        type: auth
+        description: User must own the publisher containing this game
+        onFail: UNAUTHORIZED
+      - step: 2
+        name: isDraft
+        type: state
+        description: Game must be in 'draft' status
+        onFail: GAME_ALREADY_PUBLISHED
+      - step: 3
+        name: hasItems
+        type: business
+        description: Game must have at least 1 item in draft
+        onFail: NO_ITEMS
+      - step: 4
+        name: walrusUploadOk
+        type: state
+        description: All images + metadata must upload to Walrus successfully
+        onFail: WALRUS_UPLOAD_FAILED
+    output:
+      fields:
+        - name: sponsoredTxBytes
+          type: string
+          required: true
+        - name: digest
+          type: string
+          required: true
+    errors:
+      - name: AUTH_REQUIRED
+        description: Not logged in
+      - name: UNAUTHORIZED
+        description: Not the publisher owner
+      - name: GAME_ALREADY_PUBLISHED
+        description: Game already published
+      - name: NO_ITEMS
+        description: Game has no item templates
+      - name: WALRUS_UPLOAD_FAILED
+        description: Walrus Harbor upload failed for one or more items
+
+  # ── Item Template ──
+  - name: saveItemDraft
+    type: mutation
+    method: POST
+    endpoint: "<server action>"
+    description: Create or update item draft in DB
+    input:
+      fields:
+        - name: gameId
+          type: integer
+          required: true
+        - name: name
+          type: string
+          required: true
+        - name: itemType
+          type: string
+          required: true
+        - name: rarity
+          type: string
+          required: true
+        - name: description
+          type: string
+          required: false
+        - name: supply
+          type: integer
+          required: true
+          description: 1 for NFT, >1 for fungible
+        - name: attributes
+          type: object
+          required: false
+        - name: imageFile
+          type: file
+          required: false
+    validations:
+      - step: 1
+        name: ownsGamePublisher
+        type: auth
+        description: User must own the publisher containing this game
+        onFail: UNAUTHORIZED
+    output:
+      fields:
+        - name: itemId
+          type: integer
+          required: true
+
+  # ── Claim ──
+  - name: redeemClaimCode
+    type: mutation
+    method: POST
+    endpoint: "<server action>"
+    description: Redeem claim code — mints item on-chain to player via Flow A
+    input:
+      fields:
+        - name: code
+          type: string
+          required: true
+        - name: playerAddress
+          type: string
+          required: true
+          description: Sui address from Enoki wallet
+    validations:
+      - step: 1
+        name: codeExists
+        type: input
+        description: Claim code must exist in DB
+        onFail: INVALID_CODE
+      - step: 2
+        name: notExpired
+        type: state
+        description: Claim code must not be expired
+        onFail: CODE_EXPIRED
+      - step: 3
+        name: notClaimed
+        type: state
+        description: Code must not have been claimed (SELECT FOR UPDATE)
+        onFail: CODE_CLAIMED
+      - step: 4
+        name: nftNotDoubleClaim
+        type: business
+        description: For NFT items, template must not have existing claim
+        onFail: NFT_ALREADY_CLAIMED
+    output:
+      fields:
+        - name: success
+          type: boolean
+          required: true
+        - name: txDigest
+          type: string
+          required: true
+        - name: itemId
+          type: string
+          required: true
+    errors:
+      - name: INVALID_CODE
+        description: Claim code not found
+      - name: CODE_EXPIRED
+        description: Claim code past 24h TTL
+      - name: CODE_CLAIMED
+        description: Code already redeemed
+      - name: NFT_ALREADY_CLAIMED
+        description: NFT template already claimed
+
+  # ── Marketplace ──
+  - name: getMarketplaceListings
+    type: query
+    method: GET
+    endpoint: "<server action>"
+    description: Browse active sale + barter listings
+    input:
+      fields:
+        - name: type
+          type: string
+          required: false
+          description: "sale | barter | all"
+        - name: gameId
+          type: string
+          required: false
+        - name: itemType
+          type: string
+          required: false
+        - name: rarity
+          type: string
+          required: false
+        - name: sortBy
+          type: string
+          required: false
+          description: "newest | price_asc | price_desc"
+    output:
+      fields:
+        - name: listings
+          type: array
+          required: true
+        - name: total
+          type: integer
+          required: true
+
+  - name: buyItem
+    type: mutation
+    method: POST
+    endpoint: "<server action>"
+    description: Purchase item from Kiosk (Flow B)
+    input:
+      fields:
+        - name: kioskId
+          type: string
+          required: true
+        - name: itemId
+          type: string
+          required: true
+        - name: price
+          type: integer
+          required: true
+          description: In MIST
+    validations:
+      - step: 1
+        name: authenticated
+        type: auth
+        description: Must be logged in
+        onFail: AUTH_REQUIRED
+    output:
+      fields:
+        - name: txDigest
+          type: string
+          required: true
+
+  - name: createEscrow
+    type: mutation
+    method: POST
+    endpoint: "<server action>"
+    description: Lock item for barter (Flow B)
+    input:
+      fields:
+        - name: itemId
+          type: string
+          required: true
+        - name: conditions
+          type: object
+          required: true
+        - name: counterparty
+          type: string
+          required: false
+    validations:
+      - step: 1
+        name: authenticated
+        type: auth
+        description: Must be logged in
+        onFail: AUTH_REQUIRED
+    output:
+      fields:
+        - name: escrowId
+          type: string
+          required: true
+        - name: txDigest
+          type: string
+          required: true
+
+  - name: fulfillEscrow
+    type: mutation
+    method: POST
+    endpoint: "<server action>"
+    description: Fulfill barter — instant 1:1 (Flow B)
+    input:
+      fields:
+        - name: escrowId
+          type: string
+          required: true
+        - name: myItemId
+          type: string
+          required: true
+    validations:
+      - step: 1
+        name: authenticated
+        type: auth
+        description: Must be logged in
+        onFail: AUTH_REQUIRED
+    output:
+      fields:
+        - name: txDigest
+          type: string
+          required: true
+
+  - name: fulfillEscrowWithValue
+    type: mutation
+    method: POST
+    endpoint: "<server action>"
+    description: Fulfill barter with SUI top-up (Flow B)
+    input:
+      fields:
+        - name: escrowId
+          type: string
+          required: true
+        - name: myItemId
+          type: string
+          required: true
+        - name: topupAmount
+          type: integer
+          required: true
+          description: SUI amount in MIST
+    validations:
+      - step: 1
+        name: authenticated
+        type: auth
+        description: Must be logged in
+        onFail: AUTH_REQUIRED
+    output:
+      fields:
+        - name: txDigest
+          type: string
+          required: true
+
+  - name: cancelEscrow
+    type: mutation
+    method: POST
+    endpoint: "<server action>"
+    description: Cancel own escrow (Flow B)
+    input:
+      fields:
+        - name: escrowId
+          type: string
+          required: true
+    validations:
+      - step: 1
+        name: isInitiator
+        type: auth
+        description: Only the initiator can cancel
+        onFail: UNAUTHORIZED
+    output:
+      fields:
+        - name: txDigest
+          type: string
+          required: true
+
+  # ── API Keys ──
+  - name: generateApiKey
+    type: mutation
+    method: POST
+    endpoint: "<server action>"
+    description: Generate a new API key for a published game
+    input:
+      fields:
+        - name: gameId
+          type: integer
+          required: true
+    validations:
+      - step: 1
+        name: ownsPublisher
+        type: auth
+        description: User must own the publisher
+        onFail: UNAUTHORIZED
+      - step: 2
+        name: isPublished
+        type: state
+        description: Game must be published
+        onFail: GAME_NOT_PUBLISHED
+    output:
+      fields:
+        - name: apiKey
+          type: string
+          required: true
+          description: Full key — shown once
+    errors:
+      - name: UNAUTHORIZED
+        description: Not the publisher owner
+      - name: GAME_NOT_PUBLISHED
+        description: Cannot generate keys for draft game
+
+  # ── Analytics ──
+  - name: getPublisherAnalytics
+    type: query
+    method: GET
+    endpoint: "<server action>"
+    description: Aggregated stats for a publisher
+    input:
+      fields:
+        - name: publisherId
+          type: string
+          required: true
+        - name: timeRange
+          type: string
+          required: false
+          description: "7d | 30d | all"
+    output:
+      fields:
+        - name: totalMinted
+          type: integer
+          required: true
+        - name: totalClaimed
+          type: integer
+          required: true
+        - name: activePlayers
+          type: integer
+          required: true
+        - name: txVolume
+          type: integer
+          required: true
+
+  # ── Admin ──
+  - name: verifyPublisher
+    type: mutation
+    method: POST
+    endpoint: "<server action>"
+    description: Toggle publisher verification (Flow A — platform admin signs)
+    input:
+      fields:
+        - name: publisherId
+          type: string
+          required: true
+    validations:
+      - step: 1
+        name: isAdmin
+        type: auth
+        description: Caller must hold AdminCap
+        onFail: UNAUTHORIZED
+    output:
+      fields:
+        - name: verified
+          type: boolean
+          required: true
+
+  - name: pauseGame
+    type: mutation
+    method: POST
+    endpoint: "<server action>"
+    description: Admin pauses a game (Flow A)
+    input:
+      fields:
+        - name: gameId
+          type: string
+          required: true
+    validations:
+      - step: 1
+        name: isAdmin
+        type: auth
+        description: Caller must hold AdminCap
+        onFail: UNAUTHORIZED
+    output:
+      fields:
+        - name: success
+          type: boolean
+          required: true
+
+  - name: resumeGame
+    type: mutation
+    method: POST
+    endpoint: "<server action>"
+    description: Admin resumes a paused game (Flow A)
+    input:
+      fields:
+        - name: gameId
+          type: string
+          required: true
+    validations:
+      - step: 1
+        name: isAdmin
+        type: auth
+        description: Caller must hold AdminCap
+        onFail: UNAUTHORIZED
+    output:
+      fields:
+        - name: success
+          type: boolean
+          required: true
+
+  # ═══════════════════════════════════════════
+  # BACKGROUND JOBS
+  # ═══════════════════════════════════════════
+
+  - name: eventIndexer
+    type: event
+    method: POST
+    endpoint: "<gRPC stream>"
+    description: Subscribe to Move events from all 4 contract modules via gRPC streaming. Populates tx_events, escrow_index, and item_cache tables in PostgreSQL.
+    input:
+      fields: []
+    validations:
+      - step: 1
+        name: contractsDeployed
+        type: state
+        description: Package must be deployed and PACKAGE_ID must be known
+        onFail: CONTRACTS_NOT_DEPLOYED
+    output:
+      fields: []
+    errors:
+      - name: CONTRACTS_NOT_DEPLOYED
+        description: PACKAGE_ID not configured
