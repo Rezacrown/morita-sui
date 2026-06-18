@@ -1,4 +1,4 @@
-# Morita — Integration Guide
+﻿# Morita — Integration Guide
 
 Auto-generated from `smart-contract.blueprint.yaml`, `backend.blueprint.yaml`, `database.blueprint.yaml`, `ui.blueprint.yaml`.
 
@@ -42,21 +42,22 @@ Auto-generated from `smart-contract.blueprint.yaml`, `backend.blueprint.yaml`, `
 └─────────────┼───────────────────────┼──────────────────────────┘
               │                       │
               ▼                       ▼
-┌────────────────────┐    ┌────────────────────┐
-│   SUI BLOCKCHAIN   │    │    POSTGRESQL      │
-│  ┌──────────────┐  │    │  ┌──────────────┐  │
-│  │ registry.move│  │    │  │ gamedevs     │  │
-│  │ item.move    │  │    │  │ publishers   │  │
-│  │ kiosk_ext    │  │    │  │ games        │  │
-│  │ escrow.move  │──┼────┼──│ item_cache   │  │
-│  └──────────────┘  │    │  │ claim_codes  │  │
-│  ┌──────────────┐  │    │  │ escrow_index │  │
-│  │ Walrus        │  │    │  │ tx_events    │  │
-│  │ (blob store)  │  │    │  │ user_kiosks  │  │
-│  └──────────────┘  │    │  │ api_keys     │  │
-└────────────────────┘    │  │ item_templat.│  │
-                          │  └──────────────┘  │
-                          └────────────────────┘
+┌────────────────────────┐    ┌────────────────────┐
+│    SUI BLOCKCHAIN      │    │    POSTGRESQL      │
+│  ┌──────────────────┐  │    │  ┌──────────────┐  │
+│  │ registry.move    │  │    │  │ gamedevs     │  │
+│  │ item.move        │  │    │  │ publishers   │  │
+│  │ kiosk_ext        │  │    │  │ games        │  │
+│  │ escrow.move      │  │    │  │ item_cache   │  │
+│  │ Game (shared obj)│──┼────┼──│ claim_codes  │  │
+│  └──────────────────┘  │    │  │ escrow_index │  │
+│  ┌──────────────────┐  │    │  │ tx_events    │  │
+│  │ Walrus            │  │    │  │ user_kiosks  │  │
+│  │ (blob store)      │  │    │  │ api_keys     │  │
+│  │ server-side        │  │    │  │ item_templat.│  │
+│  │ via ADMIN_KEY      │  │    │  └──────────────┘  │
+│  └──────────────────┘  │    └────────────────────┘
+└────────────────────────┘
 ```
 
 ---
@@ -68,9 +69,10 @@ Auto-generated from `smart-contract.blueprint.yaml`, `backend.blueprint.yaml`, `
 | connectWallet | loginWithEnoki | — | — | `@mysten/enoki` + `@mysten/dapp-kit-react` |
 | createPublisher | createPublisher | Flow B | `registry::create_publisher` | Enoki auto-sign |
 | createGame | createGame | — (DB only) | — | Drizzle ORM |
-| publishGame | publishGame | Flow B | `registry::create_game` | Enoki auto-sign |
+| publishGame | publishGame | Flow B | `registry::initiate_publish` → `registry::finalize_publish` | Enoki auto-sign |
+| updateGame | updateGame | — (DB only) | — | Drizzle ORM |
 | saveItemDraft | saveItemDraft | — (DB only) | — | Drizzle ORM |
-| listForSale | listForSale (→ buyItem) | Flow B | `kiosk_ext::list_with_royalty` | Enoki auto-sign |
+| listForSale | listForSale | Flow B | `kiosk_ext::list_for_sale` | Enoki auto-sign |
 | buyItem | buyItem | Flow B | `kiosk_ext::buy_item` | Enoki auto-sign |
 | createBarterEscrow | createEscrow | Flow B | `escrow::lock_item_for_any` | Enoki auto-sign |
 | fulfillBarter | fulfillEscrow | Flow B | `escrow::fulfill_escrow` | Enoki auto-sign |
@@ -93,66 +95,79 @@ Auto-generated from `smart-contract.blueprint.yaml`, `backend.blueprint.yaml`, `
 
 ---
 
-## Data Flow: Publish Game (Most Complex Flow)
+## Data Flow: Publish Game (Hot Potato Pattern)
 
 ```
 1. GameDev clicks "Publish Game" on Game Detail page
    → UI shows: ConfirmModal with item count
-   
+
 2. Frontend calls publishGame server action
    → Backend validates: game in draft, has items, user owns publisher
-   
-3. Backend uploads all item images to Walrus Harbor
-   → POST to Harbor API for each image
-   → Returns blob_id_image for each
+
+3. Backend uploads all item images to Walrus (server-side via ADMIN_KEY)
+   → POST to Walrus Harbor API for each image using ADMIN_KEY credentials
+   → GameDev never sees browser wallet popups or browser-based upload dialogs
    → Progress streamed to UI via PublishProgressBar
-   
+
 4. Backend builds metadata JSON per item
    → JSON: { name, description, image: blob_id_image, tags, attributes }
-   → Uploads each JSON to Walrus Harbor
+   → Uploads each JSON to Walrus Harbor (server-side via ADMIN_KEY)
    → Returns blob_id_metadata for each
-   
+
 5. Backend stores all blob_ids in item_templates table
    → Returns item configs to frontend
-   
-6. Frontend builds PTB (Transaction):
-   tx.moveCall({
-     target: `${PACKAGE_ID}::registry::create_game`,
+
+6. Frontend builds a single PTB with TWO sequential Move calls:
+   // Call 1: initiate_publish — validates publisher, creates Game + PublishTicket
+   const [game, publishTicket] = tx.moveCall({
+     target: `${PACKAGE_ID}::registry::initiate_publish`,
      arguments: [publisher, tx.pure.string(gameName)]
    })
-   // Get GameCapability result → transfer to platform address
-   tx.transferObjects([gameCapability], PLATFORM_ADDRESS)
-   
+   // Returns (Game, PublishTicket). PublishTicket is a hot potato — MUST be consumed.
+
+   // Call 2: finalize_publish — creates GameCapability, shares Game, consumes ticket
+   tx.moveCall({
+     target: `${PACKAGE_ID}::registry::finalize_publish`,
+     arguments: [game, publishTicket, tx.pure.address(PLATFORM_ADDRESS)],
+   })
+   // GameCapability → created and transferred to PLATFORM_ADDRESS
+   // Game → shared object on-chain (for admin access + mint tracking)
+   // PublishTicket → destroyed (hot potato consumed)
+
 7. Frontend: tx.build({ onlyTransactionKind: true })
    → POST txBytes to backend (publishGame server action)
-   
+
 8. Backend: EnokiClient.createSponsoredTransaction({
      network: 'testnet',
      transactionKindBytes: txBytes,
      sender: gameDevAddress,
-     allowedMoveCallTargets: [`${PACKAGE_ID}::registry::create_game`],
+     allowedMoveCallTargets: [
+       `${PACKAGE_ID}::registry::initiate_publish`,
+       `${PACKAGE_ID}::registry::finalize_publish`,
+     ],
      allowedAddresses: [PLATFORM_ADDRESS],
    })
    → Returns { bytes, digest }
-   
+
 9. Backend → Frontend: { bytes, digest }
-   
+
 10. Frontend: Enoki wallet auto-signs bytes
     → useSignTransaction({ transaction: bytes })
     → Gets signature (no user confirmation needed)
-    
+
 11. Frontend → Backend: { digest, signature }
-    
+
 12. Backend: EnokiClient.executeSponsoredTransaction({ digest, signature })
-    → Transaction executes on Sui
-    
+    → Both Move calls execute atomically in one PTB
+    → Game becomes a shared object on Sui
+
 13. On success — DB updates:
     → game.sui_game_id = result.game_id
-    → game.game_capability_id = result.capability_id  
+    → game.game_capability_id = result.capability_id
     → game.status = 'published'
     → item_templates.status = 'published' (all items)
     → Generate API key → store hashed in api_keys
-    
+
 14. Redirect to Game Detail with TxStatusToast "Game published!"
 ```
 
@@ -162,16 +177,16 @@ Auto-generated from `smart-contract.blueprint.yaml`, `backend.blueprint.yaml`, `
 
 ```
 1. Player opens claim URL: /claim?code=XK92-BH4M
-   
+
 2. If not logged in → Enoki wallet connect
-   
+
 3. getClaimInfo(code) fetches item preview from DB
    → UI shows: "You earned: Legendary Sword from Astral Quest"
-   
+
 4. Player clicks "Claim Item"
-   
+
 5. Frontend calls redeemClaimCode(code, playerAddress)
-   
+
 6. Backend (Flow A):
    a. BEGIN TRANSACTION
    b. SELECT ... FOR UPDATE claim_codes WHERE code = 'XK92-BH4M'
@@ -182,6 +197,7 @@ Auto-generated from `smart-contract.blueprint.yaml`, `backend.blueprint.yaml`, `
       tx.moveCall({
         target: `${PACKAGE_ID}::item::mint`,
         arguments: [
+          tx.object(Shared: gameObjectId), // Game shared object (for on-chain double-mint tracking)
           gameCapability,
           tx.pure.u64(item_id),
           tx.pure.string(item_type),
@@ -197,9 +213,9 @@ Auto-generated from `smart-contract.blueprint.yaml`, `backend.blueprint.yaml`, `
    j. EnokiClient.executeSponsoredTransaction(...)
    k. UPDATE claim_codes SET claimed_at=now(), claimed_by=playerAddress
    l. COMMIT TRANSACTION
-   
+
 7. Return { success: true, txDigest, itemId }
-   
+
 8. UI shows: TxStatusToast → redirect to inventory
 ```
 
@@ -210,7 +226,7 @@ Auto-generated from `smart-contract.blueprint.yaml`, `backend.blueprint.yaml`, `
 ```
 1. Gamer A clicks "Barter" on Legendary Sword in inventory
    → createEscrow(itemId, conditions, counterparty?)
-   
+
 2. Flow B starts:
    a. Frontend builds PTB:
       tx.moveCall({
@@ -221,18 +237,18 @@ Auto-generated from `smart-contract.blueprint.yaml`, `backend.blueprint.yaml`, `
    c. Backend: EnokiClient.createSponsoredTransaction(...)
    d. Frontend: Enoki auto-signs
    e. Backend executes
-   
+
 3. gRPC event listener picks up EscrowCreated
    → Inserts into escrow_index table
-   
+
 4. Gamer B browses marketplace → escrow_index query returns listing
-   
+
 5. Gamer B clicks "Fulfill Barter" → selects own item → confirm
-   
+
 6. fulfillEscrow(escrowId, myItemId) — same Flow B
    → PTB: escrow::fulfill_escrow(escrow_id, my_item)
    → Atomic swap executes
-   
+
 7. gRPC event: EscrowFulfilled
    → escrow_index.is_active = false
    → tx_events: both swap directions logged
@@ -253,9 +269,10 @@ Auto-generated from `smart-contract.blueprint.yaml`, `backend.blueprint.yaml`, `
 | Backend | `@mysten/enoki` (EnokiClient) | Sponsored transactions (Flow A + B) |
 | Backend | `@mysten/sui/transactions` | PTB construction (Flow A) |
 | Backend | `@mysten/sui/grpc` | gRPC streaming + on-chain queries |
+| Backend | `@mysten/walrus` | Server-side Walrus blob upload (via ADMIN_KEY) |
 | Backend | `hono` | External API routes |
 | Backend | `drizzle-orm` + `pg` | Database |
-| Backend | Walrus Harbor API (HTTP) | Asset upload |
+| Backend | Walrus Harbor API (HTTP) | Fallback asset upload endpoint |
 | Contracts | Sui Move (std + sui framework) | Smart contracts |
 | Contracts | `0x2::kiosk` | Kiosk integration |
 
@@ -270,10 +287,33 @@ Auto-generated from `smart-contract.blueprint.yaml`, `backend.blueprint.yaml`, `
 4. Get Google OAuth Client ID from Google Cloud Console
 5. Get Twitch OAuth Client ID from Twitch Developer Console
 
+### Enoki Whitelist (Required for Sponsored Transactions)
+- All Move call targets must be whitelisted in the Enoki Portal before they can be used in sponsored transactions
+- Required whitelist entries for this project:
+  - `${PACKAGE_ID}::registry::create_publisher`
+  - `${PACKAGE_ID}::registry::initiate_publish`
+  - `${PACKAGE_ID}::registry::finalize_publish`
+  - `${PACKAGE_ID}::registry::update_game`
+  - `${PACKAGE_ID}::registry::verify_publisher`
+  - `${PACKAGE_ID}::registry::pause_game`
+  - `${PACKAGE_ID}::registry::resume_game`
+  - `${PACKAGE_ID}::item::mint`
+  - `${PACKAGE_ID}::item::burn`
+  - `${PACKAGE_ID}::kiosk_ext::list_for_sale`
+  - `${PACKAGE_ID}::kiosk_ext::buy_item`
+  - `${PACKAGE_ID}::escrow::lock_item_for_any`
+  - `${PACKAGE_ID}::escrow::lock_item_for_target`
+  - `${PACKAGE_ID}::escrow::fulfill_escrow`
+  - `${PACKAGE_ID}::escrow::fulfill_escrow_with_value`
+  - `${PACKAGE_ID}::escrow::cancel_escrow`
+- Allowed addresses: add the platform address to the whitelist
+- Update the whitelist whenever new contract functions are deployed
+
 ### Sui Network
 - Network: `testnet`
 - gRPC endpoint: `https://rpc.testnet.sui.io:443`
 - Faucet: https://faucet.testnet.sui.io (for pre-funding demo players)
+- Note: Game objects are created as **shared objects** — anyone can read game data on-chain
 
 ### Move Contracts
 1. Install Sui CLI (v1.63+)
@@ -287,12 +327,14 @@ Auto-generated from `smart-contract.blueprint.yaml`, `backend.blueprint.yaml`, `
 
 ### Walrus Harbor
 - Harbor API endpoint (from Walrus docs)
-- HTTP POST for blob upload
+- NOTE: All Walrus uploads are server-side (via ADMIN_KEY in the backend)
+- GameDev does NOT interact with Walrus from the browser — no browser-based uploads or wallet popups during publish
+- HTTP POST for blob upload from the backend
 
 ### .env.local
 ```
 NEXT_PUBLIC_SUI_NETWORK=testnet
-ADMIN_PRIVATE_KEY=            # Platform key for Flow A signing
+ADMIN_PRIVATE_KEY=            # Platform key for Flow A signing + Walrus auth
 NEXT_PUBLIC_ENOKI_PUBLIC_KEY=
 ENOKI_SECRET_KEY=
 NEXT_PUBLIC_GOOGLE_CLIENT_ID=

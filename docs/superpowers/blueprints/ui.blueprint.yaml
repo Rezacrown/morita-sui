@@ -1,4 +1,4 @@
-schemaVersion: 1
+﻿schemaVersion: 1
 name: morita-frontend
 description: "Morita web app — Gamer Hub (marketplace, inventory, barter, claim, history) + Developer Dashboard (publisher workspace, game management, analytics)"
 kind: "Web SPA"
@@ -177,6 +177,7 @@ actions:
   # ── Auth ──
   - name: connectWallet
     page: Landing
+    serverAction: loginWithEnoki
     trigger: onClick
     validation: Enoki wallets must be registered
     onError: "display toast: 'Failed to connect wallet'"
@@ -184,91 +185,155 @@ actions:
   # ── Gamer Hub ──
   - name: exploreMarketplace
     page: Landing
+    serverAction: —
     trigger: onClick
     validation: none
     onError: "redirect to landing"
 
   - name: listForSale
     page: Inventory
+    serverAction: listForSale
     trigger: onClick
     validation: "wallet must be connected; user must own the item"
     onError: "display toast with error"
 
   - name: createBarterEscrow
     page: Inventory
+    serverAction: createEscrow
     trigger: onClick
     validation: "wallet must be connected; user must own the item"
     onError: "display toast with error"
 
+  - name: viewItemDetail
+    page: Inventory
+    trigger: onClick
+    validation: item must exist
+    onError: "display toast: 'Item not found'"
+
+  - name: viewTxExplorer
+    page: History
+    trigger: onClick
+    validation: tx hash must be valid
+    onError: "display toast: 'Invalid transaction'"
+
+  - name: createItem
+    page: GameDetail
+    trigger: onClick
+    validation: game must exist; game must be draft
+    onError: "display toast: 'Cannot create item'"
+
+  - name: openItemDetail
+    page: GameDetail
+    trigger: onClick
+    validation: item must exist
+    onError: "display toast: 'Item not found'"
+
+  - name: copyApiKey
+    page: APIKeys
+    trigger: onClick
+    validation: key must be selected; clipboard API available
+    onError: "display toast: 'Could not copy to clipboard'"
+
+  - name: saveSettings
+    page: Settings
+    trigger: onClick
+    validation: "name 1-100 chars; logoUrl must be valid URL if provided"
+    onError: "display form validation errors"
+
   - name: buyItem
     page: Marketplace
+    serverAction: buyItem
     trigger: onClick
     validation: "wallet must be connected; payment must be available"
     onError: "display toast with error"
 
   - name: applyFilters
     page: Marketplace
+    serverAction: —
     trigger: onChange
     validation: none
     onError: "reset to default filters"
 
   - name: fulfillBarter
     page: BarterDetail
+    serverAction: fulfillEscrow
     trigger: onClick
     validation: "wallet connected; escrow active; item matches conditions"
     onError: "display toast: 'Cannot fulfill this barter'"
 
   - name: cancelEscrow
     page: BarterDetail
+    serverAction: cancelEscrow
     trigger: onClick
     validation: "must be the escrow initiator; escrow must be active"
     onError: "display toast: 'Cannot cancel this escrow'"
 
   - name: redeemClaimCode
     page: Claim
+    serverAction: redeemClaimCode
     trigger: onClick
     validation: "wallet must be connected; code must be valid"
     onError: "display error state: invalid/expired/claimed"
 
   - name: loadHistory
     page: History
+    serverAction: —
     trigger: onMount
     validation: "wallet must be connected"
     onError: "display empty state"
 
+  - name: viewTxExplorer
+    page: History
+    trigger: onClick
+    validation: txHash must be valid
+    onError: "display toast: 'Invalid transaction'"
+
   # ── Developer Dashboard ──
   - name: createPublisher
     page: DashboardHome
+    serverAction: createPublisher
     trigger: onClick
     validation: "wallet must be connected; name 1-100 chars"
     onError: "display toast with validation error"
 
   - name: openPublisher
     page: DashboardHome
+    serverAction: —
     trigger: onClick
     validation: publisher must exist
     onError: "redirect to dashboard"
 
   - name: navigateToTab
     page: PublisherWorkspace
+    serverAction: —
     trigger: onClick
     validation: tab route must be valid
     onError: "redirect to workspace overview"
 
   - name: createGame
     page: GamesManager
+    serverAction: createGame
     trigger: onClick
     validation: "name 1-200 chars; publisher must exist"
     onError: "display toast with validation error"
 
   - name: openGame
     page: GamesManager
+    serverAction: —
     trigger: onClick
     validation: game must exist
     onError: "display toast: 'Game not found'"
 
+  - name: updateGame
+    page: GameDetail
+    serverAction: "updateGame (draft) or updatePublishedGame (published)"
+    trigger: onClick
+    validation: "game must exist; user owns publisher; draft→edit all fields; published→metadata only"
+    onError: "display toast: 'Failed to update game'"
+
   - name: publishGame
     page: GameDetail
+    serverAction: publishGame
     trigger: onClick
     validation: "game must be draft; must have at least 1 item; user owns publisher"
     onError: "display modal with specific error"
@@ -279,44 +344,63 @@ actions:
     validation: game must exist; game must be draft
     onError: "display toast: 'Cannot add items to published game'"
 
+  - name: openItemDetail
+    page: GameDetail
+    trigger: onClick
+    validation: item must exist
+    onError: "display toast: 'Item not found'"
+
   - name: saveItemDraft
     page: ItemDetailOrEdit
+    serverAction: saveItemDraft
     trigger: onClick
     validation: "name required; type required; rarity required; supply >= 1"
     onError: "display form validation errors"
 
   - name: deleteItemDraft
     page: ItemDetailOrEdit
+    serverAction: deleteItemDraft
     trigger: onClick
     validation: "item must be draft; confirm modal"
     onError: "display toast"
 
   - name: generateApiKey
     page: APIKeys
+    serverAction: generateApiKey
     trigger: onClick
     validation: "game must be published; user owns publisher"
     onError: "display toast: 'Cannot generate key'"
 
   - name: revokeApiKey
     page: APIKeys
+    serverAction: revokeApiKey
     trigger: onClick
     validation: "key must exist and be active; confirm modal"
     onError: "display toast"
 
+  - name: copyApiKey
+    page: APIKeys
+    trigger: onClick
+    validation: "key must exist"
+    onError: "display toast: 'Failed to copy'"
+
   - name: loadAnalytics
     page: Analytics
+    serverAction: —
     trigger: onMount
     validation: "publisher must exist; user owns publisher"
     onError: "display empty charts"
 
   - name: changeTimeRange
     page: Analytics
+    serverAction: —
     trigger: onClick
     validation: none
     onError: "reload with default range"
 
   - name: loadActivity
     page: ActivityLog
+    serverAction: —
     trigger: onMount
     validation: "publisher must exist; user owns publisher"
     onError: "display empty log"
@@ -433,6 +517,9 @@ entities:
         type: string
         required: false
       - name: genre
+        type: string
+        required: false
+      - name: websiteUrl
         type: string
         required: false
       - name: status

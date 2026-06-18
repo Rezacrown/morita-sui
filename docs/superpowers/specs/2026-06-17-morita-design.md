@@ -156,57 +156,69 @@ morita/contract/sources/
 
 ### Module 1: `registry.move`
 
+**Abilities note:** `GameItem` uses `has key, store` to enable Kiosk compatibility. This means custom transfer rules (e.g., "soulbound" items) cannot be enforced at the Move level for MVP. Future: consider `has key` only with custom wrapper for special item classes.
+
 **On-chain entities:**
 
 ```
 AdminCap (held by platform)
   ├── verify_publisher(publisher_id)
-  ├── pause_game(game_id) / resume_game(game_id)
+  ├── pause_game(game: &mut Game) / resume_game(game: &mut Game)
 
 Publisher (self-service, anyone can create)
   ├── name: String
   ├── owner: address
   └── is_verified: bool
 
-Game (created by publisher)
+Game (SHARED OBJECT — created by publisher, shared for admin access)
   ├── name: String
   ├── publisher_id: ID
   ├── created_at: u64
-  └── is_active: bool
+  ├── is_active: bool
+  └── minted_items: Table<u64, bool>  # Tracks minted item_ids (prevents double-mint for NFTs)
 
 GameCapability (issued to platform on publish)
   └── Authorizes mint/burn of items for that game
   └── Held by platform sponsor address (for Flow A mint)
+
+PublishTicket (HOT POTATO — no key, no store, no drop, no copy)
+  ├── game_id: ID
+  ├── publisher_id: ID
+  └── Forces finalize_publish() call in same PTB
 ```
 
 **Functions:**
 - `create_publisher(name, ctx)` — self-service, anyone with Sui address
 - `verify_publisher(AdminCap, publisher_id)` — admin only
-- `create_game(publisher, game_name, ctx)` — publisher owner only; returns Game and GameCapability
-- `update_game(GameCapability, new_name, ctx)` — metadata edit after publish (GameCapability held by platform)
-- `pause_game(AdminCap, game_id)` / `resume_game(AdminCap, game_id)` — emergency control
+- `initiate_publish(publisher, game_name, ctx)` — publisher owner only; returns `(Game, PublishTicket)` (no GameCapability yet!)
+- `finalize_publish(game: &mut Game, ticket: PublishTicket, platform_addr: address, ctx)` — consumes the hot potato ticket; creates and transfers GameCapability to platform_addr; shares the Game. This ensures capability ALWAYS goes to platform.
+- `update_game(game: &mut Game, new_name, ctx)` — metadata edit (checks `game.is_active`)
+- `pause_game(AdminCap, game: &mut Game)` / `resume_game(AdminCap, game: &mut Game)` — emergency control; works because Game is shared
 
 **State transitions:**
 ```
 Publisher:  active ──→ verified (admin toggle)
-Game:       created ──→ paused ──→ resumed
+Game:       created (shared) ──→ paused ──→ resumed
 ```
 
-**Key design decision:** `create_game` returns GameCapability. During publish (Flow B), the PTB includes a `transferObjects` command to send the GameCapability to the platform sponsor address. This enables Flow A mints.
+**Key design decision — PublishTicket hot potato:** `initiate_publish` creates the Game (shared) and a `PublishTicket` (hot potato). The ticket MUST be consumed in `finalize_publish` within the same PTB. This enforces that GameCapability is always transferred to the platform address — no way for GameDev to keep it. Full publish is 2 Move calls in 1 PTB.
 
 ### Module 2: `item.move`
 
 **Struct:**
 ```
-GameItem
+GameItem has key, store
+  ├── id: UID              # Sui object ID (standard UID, NOT owner field)
   ├── game_id: ID          # Which game this item belongs to
   ├── item_id: u64         # Unique ID within the game
   ├── item_type: String    # Gamedev-defined (e.g., "weapon", "sword", "melee")
   ├── rarity: String       # Gamedev-defined (e.g., "legendary", "S-rank", "divine")
   ├── blob_id: String      # Walrus Blob ID pointing to metadata JSON
-  ├── supply: Option<u64>  # None = NFT (unique), Some(n) = fungible copies
-  └── owner: address       # Current owner
+  └── supply: Option<u64>  # None = NFT (unique), Some(n) = fungible copies
+  # NOTE: No `owner: address` field. Ownership tracked by Sui runtime.
 ```
+
+**Abilities:** `has key, store` — required for Sui Kiosk compatibility (`public_transfer` needs `store`). This means custom transfer rules cannot be enforced in Move for MVP. Future: `has key` only + custom wrapper for special items.
 
 **Metadata Model (3 layers):**
 
@@ -219,8 +231,10 @@ GameItem
 Walrus blob is immutable by default. Metadata is permanent.
 
 **Functions:**
-- `mint(GameCapability, item_config, recipient, ctx)` — create item, transfer to player
-- `burn(GameCapability, item)` — destroy item
+- `mint(GameCapability, game: &mut Game, item_config, recipient, ctx)` — creates item, tracks item_id in `game.minted_items` to prevent double-mint for NFTs, transfers to player
+- `burn(GameCapability, game: &mut Game, item: GameItem)` — destroys item, removes from `game.minted_items`
+
+**On-chain double-mint prevention:** `mint()` checks `game.minted_items.contains(item_id)`. If already minted (for NFTs), throws `E_ITEM_EXISTS`. The `minted_items: Table<u64, bool>` is stored on the shared `Game` object. This is trustless — even if the platform backend is compromised, the Move contract prevents double-minting.
 
 **Important:** `mint` happens ONLY when a player claims their item (Flow A, backend-only). Items are NOT minted during game publish. GameCapability is held by the platform sponsor address.
 
@@ -238,27 +252,24 @@ Item:  draft (DB only) ──→ published (on-chain, immutable forever)
 Wraps Sui Kiosk for marketplace operations. Requires `0x2::kiosk` dependency in Move.toml.
 
 **Functions:**
-- `list_with_royalty(GameItem, kiosk, kiosk_owner_cap, price, royalty_bps: Option<u64>, ctx)`
+- `list_for_sale(GameItem, kiosk: &mut Kiosk, kiosk_owner_cap: &KioskOwnerCapability, price: Coin<SUI>, royalty_bps: Option<u64>, ctx)`
+  - Takes `GameItem` by value (must own it). Uses `kiosk::place` + optional `kiosk::add_rule(royalty_rule)`.
   - If `royalty_bps` is `Some(n)`: installs a Kiosk `Rule<Royalty>` for `n` basis points
   - If `royalty_bps` is `None`: item listed with no royalty
   - Places item in Kiosk for direct sale
+  - **Note:** `kiosk_owner_cap` must be the item owner's own capability (auth check by Move runtime)
 
-- `buy_item(kiosk, kiosk_owner_cap, item_id, payment, ctx)`
-  - Standard Kiosk purchase
-  - If royalty rule exists: auto-splits payment (seller + royalty recipient)
+- `buy_item(kiosk: &mut Kiosk, item_id: ID, payment: Coin<SUI>, ctx)`
+  - Standard purchase using `kiosk::purchase` (which does NOT need KioskOwnerCapability from the buyer)
+  - Buyer sends payment, receives the item directly
+  - If royalty rule exists: Kiosk auto-splits payment (seller + royalty recipient)
   - Emits event for backend indexing
 
-**Royalty flow:**
-- Gamer A lists item → optionally sets royalty (e.g., 3%)
-- Gamer B buys → Kiosk auto-splits: 97% to seller, 3% to royalty reserve
-- When Gamer B resells to Gamer C → Gamer A receives 3% again
-- Royalty persists forever (Kiosk rule stays with item)
-
 **Kiosk Management:**
-- When a player first attempts to list/sell an item, backend checks if they have a Kiosk
-- If not, Flow A (backend-only PTB) auto-creates one: `kiosk::new()` + `kiosk::share()`
-- Kiosk ID is stored in PostgreSQL: `user_kiosks { sui_address, kiosk_id, kiosk_owner_cap_id }`
-- Subsequent transactions use the stored Kiosk ID
+- When a player first attempts to list/sell an item, backend auto-creates their Kiosk via Flow A PTB
+- Backend stores Kiosk ID + KioskOwnerCapability ID in `user_kiosks` table
+- **Fallback:** Always query Sui on-chain for existing Kiosk before creating (to prevent DB/on-chain desync)
+- All subsequent marketplace operations use the stored Kiosk ID
 
 ### Module 4: `escrow.move`
 
@@ -419,7 +430,7 @@ Note: Mint endpoint only creates a claim code in DB. On-chain mint happens at cl
 
 **API Keys:** `generateApiKey`, `revokeApiKey`, `getApiKeys`
 
-**Marketplace:** `getMarketplaceListings`, `getListingDetail`, `buyItem` (Flow B), `createEscrow` (Flow B), `fulfillEscrow` (Flow B), `fulfillEscrowWithValue` (Flow B), `cancelEscrow` (Flow B)
+**Marketplace:** `getMarketplaceListings`, `getListingDetail`, `listForSale` (Flow B), `buyItem` (Flow B), `createEscrow` (Flow B), `fulfillEscrow` (Flow B), `fulfillEscrowWithValue` (Flow B), `cancelEscrow` (Flow B)
 
 **Inventory:** `getMyInventory`, `getTransactionHistory`
 
@@ -428,6 +439,42 @@ Note: Mint endpoint only creates a claim code in DB. On-chain mint happens at cl
 **Analytics:** `getPublisherAnalytics`, `getPublisherActivity`
 
 **Admin:** `verifyPublisher` (Flow A), `pauseGame` (Flow A), `resumeGame` (Flow A)
+
+### Enoki `allowedMoveCallTargets` Whitelist
+
+All Move functions called via Enoki sponsored transactions must be whitelisted. Before going live, configure these in Enoki Portal:
+
+```
+{PACKAGE_ID}::registry::create_publisher
+{PACKAGE_ID}::registry::initiate_publish
+{PACKAGE_ID}::registry::finalize_publish
+{PACKAGE_ID}::registry::update_game
+{PACKAGE_ID}::registry::verify_publisher
+{PACKAGE_ID}::registry::pause_game
+{PACKAGE_ID}::registry::resume_game
+{PACKAGE_ID}::item::mint
+{PACKAGE_ID}::item::burn
+{PACKAGE_ID}::kiosk_ext::list_for_sale
+{PACKAGE_ID}::kiosk_ext::buy_item
+{PACKAGE_ID}::escrow::lock_item_for_any
+{PACKAGE_ID}::escrow::lock_item_for_target
+{PACKAGE_ID}::escrow::fulfill_escrow
+{PACKAGE_ID}::escrow::fulfill_escrow_with_value
+{PACKAGE_ID}::escrow::cancel_escrow
+0x2::kiosk::default
+0x2::kiosk::purchase
+0x2::kiosk::place
+0x2::kiosk::list
+0x2::kiosk::add_rule
+0x2::transfer::public_transfer
+0x2::transfer::public_share_object
+```
+
+### Walrus Upload Strategy
+
+**Publish flow:** All asset uploads to Walrus happen **server-side** (via Harbor API HTTP or `@mysten/walrus` SDK with `ADMIN_PRIVATE_KEY`). This avoids browser wallet popups that the 5-step `writeFilesFlow` would trigger. The GameDev only signs the on-chain PTB (Enoki auto-sign, no confirmation needed). Result: 1 click, no visible wallet interaction.
+
+**Claim flow:** Items are minted on-chain on-demand. No Walrus interaction during claim — the blob_ids are already stored in the item template from the publish step.
 
 ---
 
@@ -439,10 +486,11 @@ Note: Mint endpoint only creates a claim code in DB. On-chain mint happens at cl
 3. "Create Game" → saved as draft in DB
 4. "Create Item Templates" — upload images, fill metadata → saved as draft in DB
 5. "Publish Game":
-   - Backend uploads images + metadata to Walrus Harbor → blob_ids stored in DB
-   - Frontend builds PTB: `create_game(publisher, name)` + `transferObjects(capability, platform_addr)`
-   - Flow B: GameDev signs via Enoki auto-sign
-   - Game + GameCapability on-chain; zero items minted during publish
+   - Backend uploads images + metadata to Walrus Harbor (server-side, no browser wallet popups)
+   - Frontend builds PTB: `initiate_publish(publisher, name)` + `finalize_publish(game, ticket, PLATFORM_ADDR)`
+   - Hot potato PublishTicket forces GameCapability to platform address
+   - Flow B: GameDev signs via Enoki auto-sign (1 click, zero wallet popups)
+   - Game (shared) + GameCapability on-chain; zero items minted during publish
    - DB: status='published', API key auto-generated
 
 ### Workflow B: In-Game Item Earn
@@ -455,7 +503,7 @@ Note: Mint endpoint only creates a claim code in DB. On-chain mint happens at cl
 
 ### Workflow C: Marketplace Direct Sale
 1. Gamer A inventory → "Sell" → set price + optional royalty
-2. Flow B: check Kiosk (auto-create if needed) → `list_with_royalty(item, kiosk, cap, price, royalty?)`
+2. Flow B: check Kiosk (auto-create if needed) → `list_for_sale(item, kiosk, cap, price, royalty?)`
 3. Item listed, visible on marketplace
 4. Gamer B clicks "Buy Now"
 5. Flow B: `buy_item(kiosk, cap, item_id, payment)` → Kiosk auto-splits
@@ -473,13 +521,29 @@ Note: Mint endpoint only creates a claim code in DB. On-chain mint happens at cl
 3. Demo players pre-funded via testnet faucet
 
 ### Workflow F: Publish Game (Detail)
+
+```
+Gamedev clicks "Publish Game" from dashboard:
+
 1. Backend validates game has items in draft
-2. Backend uploads images → Walrus (progress UI shown)
+2. Backend uploads images → Walrus Harbor (server-side via ADMIN_KEY, no browser wallet popups)
+   → Progress UI shown to user via PublishProgressBar
 3. Backend builds metadata JSON per item → uploads to Walrus
 4. Backend stores blob_ids in DB, returns item configs to frontend
-5. Frontend builds PTB (create_game + transfer capability)
+5. Frontend builds PTB (2 Move calls):
+   a. initiate_publish(publisher, name, ctx) → returns (Game, PublishTicket)
+   b. finalize_publish(game, ticket, PLATFORM_ADDR, ctx)
+      → Creates GameCapability → transfers to PLATFORM_ADDR
+      → Shares Game object (shared for admin access + mint tracking)
+   c. (Walrus upload done server-side in steps 2-3, not in PTB)
 6. Flow B: Enoki auto-sign → sponsor → execute
 7. DB: status='published', API key generated
+```
+
+**Why hot potato PublishTicket:** The `PublishTicket` has NO abilities (no key, no store, no drop). It MUST be consumed by `finalize_publish` in the SAME transaction. This guarantees:
+- GameCapability is always transferred to platform address
+- GameDev cannot keep the GameCapability
+- No off-chain trust required for this critical security property
 
 ---
 

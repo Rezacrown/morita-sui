@@ -1,4 +1,4 @@
-schemaVersion: 1
+﻿schemaVersion: 1
 name: morita-backend
 description: Next.js backend — Hono external API + Server Actions internal API
 language: TypeScript
@@ -158,6 +158,7 @@ operations:
   # ═══════════════════════════════════════════
 
   # ── Auth ──
+
   - name: loginWithEnoki
     type: mutation
     method: POST
@@ -180,7 +181,26 @@ operations:
           type: string
           required: true
 
+  - name: getCurrentSession
+    type: query
+    method: GET
+    endpoint: "<server action>"
+    description: Return the current user's session info. Returns null fields if not logged in (no hard auth failure).
+    input:
+      fields: []
+    output:
+      fields:
+        - name: suiAddress
+          type: string
+          required: false
+          description: Enoki Sui address, null if not connected
+        - name: publishers
+          type: array
+          required: false
+          description: List of publisher objects owned by this user (id, name, is_verified)
+
   # ── Publisher ──
+
   - name: createPublisher
     type: mutation
     method: POST
@@ -211,6 +231,41 @@ operations:
           type: string
           required: true
 
+  - name: updatePublisher
+    type: mutation
+    method: POST
+    endpoint: "<server action>"
+    description: Edit publisher name and/or logo URL in the database. Does NOT touch on-chain state.
+    input:
+      fields:
+        - name: publisherId
+          type: string
+          required: true
+        - name: name
+          type: string
+          required: false
+          description: New publisher name (1-100 chars)
+        - name: logoUrl
+          type: string
+          required: false
+          description: New logo URL
+    validations:
+      - step: 1
+        name: authenticated
+        type: auth
+        description: User must have active Enoki session
+        onFail: AUTH_REQUIRED
+      - step: 2
+        name: ownsPublisher
+        type: auth
+        description: User must own this publisher
+        onFail: UNAUTHORIZED
+    output:
+      fields:
+        - name: success
+          type: boolean
+          required: true
+
   - name: getMyPublishers
     type: query
     method: GET
@@ -228,7 +283,41 @@ operations:
           type: array
           required: true
 
+  - name: getPublisherDetail
+    type: query
+    method: GET
+    endpoint: "<server action>"
+    description: Get detailed info for a single publisher
+    input:
+      fields:
+        - name: publisherId
+          type: string
+          required: true
+    output:
+      fields:
+        - name: id
+          type: string
+          required: true
+        - name: name
+          type: string
+          required: true
+        - name: logoUrl
+          type: string
+          required: false
+        - name: isVerified
+          type: boolean
+          required: true
+        - name: suiPublisherId
+          type: string
+          required: true
+        - name: gameCount
+          type: integer
+          required: true
+        - name: createdAt
+          type: string
+          required: true
   # ── Game (Draft CRUD) ──
+
   - name: createGame
     type: mutation
     method: POST
@@ -268,11 +357,165 @@ operations:
           type: integer
           required: true
 
+  - name: updateGame
+    type: mutation
+    method: POST
+    endpoint: "<server action>"
+    description: Edit a draft game's metadata in the database. Cannot be used on published games.
+    input:
+      fields:
+        - name: gameId
+          type: integer
+          required: true
+        - name: name
+          type: string
+          required: false
+        - name: description
+          type: string
+          required: false
+        - name: genre
+          type: string
+          required: false
+        - name: websiteUrl
+          type: string
+          required: false
+    validations:
+      - step: 1
+        name: authenticated
+        type: auth
+        description: User must have active Enoki session
+        onFail: AUTH_REQUIRED
+      - step: 2
+        name: ownsPublisher
+        type: auth
+        description: User must own the publisher that owns this game
+        onFail: UNAUTHORIZED
+      - step: 3
+        name: isDraft
+        type: state
+        description: Game must be in 'draft' status (published games are immutable via this action)
+        onFail: GAME_ALREADY_PUBLISHED
+    output:
+      fields:
+        - name: success
+          type: boolean
+          required: true
+
+  - name: deleteGame
+    type: mutation
+    method: POST
+    endpoint: "<server action>"
+    description: Delete a draft game and all its draft item templates from the database. Cannot be used on published games.
+    input:
+      fields:
+        - name: gameId
+          type: integer
+          required: true
+    validations:
+      - step: 1
+        name: authenticated
+        type: auth
+        description: User must have active Enoki session
+        onFail: AUTH_REQUIRED
+      - step: 2
+        name: ownsPublisher
+        type: auth
+        description: User must own the publisher that owns this game
+        onFail: UNAUTHORIZED
+      - step: 3
+        name: isDraft
+        type: state
+        description: Game must be in 'draft' status
+        onFail: GAME_ALREADY_PUBLISHED
+    output:
+      fields:
+        - name: success
+          type: boolean
+          required: true
+
+  - name: getGames
+    type: query
+    method: GET
+    endpoint: "<server action>"
+    description: List all games belonging to a publisher
+    input:
+      fields:
+        - name: publisherId
+          type: string
+          required: true
+    output:
+      fields:
+        - name: games
+          type: array
+          required: true
+          description: Array of game objects with id, name, status, genre, itemCount, publishedItemCount
+
+  - name: getGameDetail
+    type: query
+    method: GET
+    endpoint: "<server action>"
+    description: Get a single game with aggregated stats (item counts, published status)
+    input:
+      fields:
+        - name: gameId
+          type: integer
+          required: true
+    output:
+      fields:
+        - name: id
+          type: integer
+          required: true
+        - name: publisherId
+          type: string
+          required: true
+        - name: name
+          type: string
+          required: true
+        - name: description
+          type: string
+          required: false
+        - name: genre
+          type: string
+          required: false
+        - name: websiteUrl
+          type: string
+          required: false
+        - name: status
+          type: string
+          required: true
+          description: "draft | published"
+        - name: suiGameId
+          type: string
+          required: false
+          description: On-chain game ID, null if draft
+        - name: gameCapabilityId
+          type: string
+          required: false
+        - name: totalItems
+          type: integer
+          required: true
+          description: Total item templates for this game
+        - name: publishedItems
+          type: integer
+          required: true
+          description: Count of item templates with status='published'
+        - name: createdAt
+          type: string
+          required: true
   - name: publishGame
     type: mutation
     method: POST
     endpoint: "<server action>"
-    description: Publish game on-chain via Flow B. Uploads all assets to Walrus, deploys Game + GameCapability on-chain.
+    description: >
+      Publish game on-chain via Flow B. Two phases:
+      (1) Pre-PTB (server-side, before signing): Backend validates items exist in draft,
+          uploads all item images + metadata JSON to Walrus Harbor using ADMIN_PRIVATE_KEY,
+          stores blob_ids in item_templates table. No browser wallet popups.
+      (2) PTB execution (Flow B): Frontend builds PTB with 2 Move calls —
+          `registry::initiate_publish(publisher, name)` + `registry::finalize_publish(game, ticket, PLATFORM_ADDR)`.
+          GameDev auto-signs via Enoki. Hot potato PublishTicket forces GameCapability
+          to platform address. Backend sponsors, executes, marks status='published',
+          auto-generates first API key.
     input:
       fields:
         - name: gameId
@@ -281,7 +524,7 @@ operations:
         - name: txBytes
           type: string
           required: true
-          description: "Transaction kind bytes from frontend (Flow B step 1)"
+          description: "Transaction kind bytes from frontend (Flow B step 1) containing initiate_publish + finalize_publish"
     validations:
       - step: 1
         name: ownsPublisher
@@ -296,12 +539,12 @@ operations:
       - step: 3
         name: hasItems
         type: business
-        description: Game must have at least 1 item in draft
+        description: Game must have at least 1 item template in draft
         onFail: NO_ITEMS
       - step: 4
         name: walrusUploadOk
         type: state
-        description: All images + metadata must upload to Walrus successfully
+        description: All item images + metadata JSON must upload to Walrus Harbor successfully (server-side, pre-PTB)
         onFail: WALRUS_UPLOAD_FAILED
     output:
       fields:
@@ -323,7 +566,67 @@ operations:
       - name: WALRUS_UPLOAD_FAILED
         description: Walrus Harbor upload failed for one or more items
 
+  # ── Game (Published) ──
+
+  - name: updatePublishedGame
+    type: mutation
+    method: POST
+    endpoint: "<server action>"
+    description: >
+      Update published game metadata on-chain via Flow A. Backend builds PTB with
+      `registry::update_game(GameCapability, game, new_name)` using the GameCapability
+      held by the platform. Backend sponsors, signs with ADMIN_PRIVATE_KEY, and executes.
+      No user signature needed.
+    input:
+      fields:
+        - name: gameId
+          type: integer
+          required: true
+        - name: name
+          type: string
+          required: false
+          description: New display name for the game
+        - name: description
+          type: string
+          required: false
+          description: Updated description (DB only, on-chain has limited fields)
+        - name: websiteUrl
+          type: string
+          required: false
+          description: Updated website URL (DB only)
+    validations:
+      - step: 1
+        name: authenticated
+        type: auth
+        description: User must have active Enoki session
+        onFail: AUTH_REQUIRED
+      - step: 2
+        name: ownsPublisher
+        type: auth
+        description: User must own the publisher containing this game
+        onFail: UNAUTHORIZED
+      - step: 3
+        name: isPublished
+        type: state
+        description: Game must be in 'published' status
+        onFail: GAME_NOT_PUBLISHED
+    output:
+      fields:
+        - name: txDigest
+          type: string
+          required: true
+        - name: success
+          type: boolean
+          required: true
+    errors:
+      - name: AUTH_REQUIRED
+        description: Not logged in
+      - name: UNAUTHORIZED
+        description: Not the publisher owner
+      - name: GAME_NOT_PUBLISHED
+        description: Cannot update a draft game via this action
   # ── Item Template ──
+
   - name: saveItemDraft
     type: mutation
     method: POST
@@ -368,7 +671,297 @@ operations:
           type: integer
           required: true
 
+  - name: deleteItemDraft
+    type: mutation
+    method: POST
+    endpoint: "<server action>"
+    description: Delete a draft item template from the database. Cannot be used on published items.
+    input:
+      fields:
+        - name: itemId
+          type: integer
+          required: true
+    validations:
+      - step: 1
+        name: authenticated
+        type: auth
+        description: User must have active Enoki session
+        onFail: AUTH_REQUIRED
+      - step: 2
+        name: ownsPublisher
+        type: auth
+        description: User must own the publisher that owns the game this item belongs to
+        onFail: UNAUTHORIZED
+      - step: 3
+        name: isDraft
+        type: state
+        description: Item must be in 'draft' status. Published items are immutable.
+        onFail: ITEM_ALREADY_PUBLISHED
+    output:
+      fields:
+        - name: success
+          type: boolean
+          required: true
+    errors:
+      - name: AUTH_REQUIRED
+        description: Not logged in
+      - name: UNAUTHORIZED
+        description: Not the publisher owner
+      - name: ITEM_ALREADY_PUBLISHED
+        description: Published items cannot be deleted
+
+  - name: getItems
+    type: query
+    method: GET
+    endpoint: "<server action>"
+    description: List all item templates for a game (both draft and published)
+    input:
+      fields:
+        - name: gameId
+          type: integer
+          required: true
+        - name: status
+          type: string
+          required: false
+          description: "Filter by status: draft | published | all (default all)"
+    output:
+      fields:
+        - name: items
+          type: array
+          required: true
+          description: Array of item objects with id, name, itemType, rarity, status, supply, imageBlobId
+
+  - name: getItemDetail
+    type: query
+    method: GET
+    endpoint: "<server action>"
+    description: Get a single item template with full metadata
+    input:
+      fields:
+        - name: itemId
+          type: integer
+          required: true
+    output:
+      fields:
+        - name: id
+          type: integer
+          required: true
+        - name: gameId
+          type: integer
+          required: true
+        - name: suiItemId
+          type: string
+          required: false
+          description: On-chain item ID, null if draft
+        - name: name
+          type: string
+          required: true
+        - name: itemType
+          type: string
+          required: true
+        - name: rarity
+          type: string
+          required: true
+        - name: description
+          type: string
+          required: false
+        - name: imageBlobId
+          type: string
+          required: false
+        - name: metadataBlobId
+          type: string
+          required: false
+        - name: supply
+          type: integer
+          required: true
+        - name: isNft
+          type: boolean
+          required: true
+        - name: attributes
+          type: object
+          required: false
+        - name: status
+          type: string
+          required: true
+          description: "draft | published"
+        - name: createdAt
+          type: string
+          required: true
+  # ── API Keys ──
+
+  - name: generateApiKey
+    type: mutation
+    method: POST
+    endpoint: "<server action>"
+    description: Generate a new API key for a published game
+    input:
+      fields:
+        - name: gameId
+          type: integer
+          required: true
+    validations:
+      - step: 1
+        name: ownsPublisher
+        type: auth
+        description: User must own the publisher
+        onFail: UNAUTHORIZED
+      - step: 2
+        name: isPublished
+        type: state
+        description: Game must be published
+        onFail: GAME_NOT_PUBLISHED
+    output:
+      fields:
+        - name: apiKey
+          type: string
+          required: true
+          description: Full key — shown once
+    errors:
+      - name: UNAUTHORIZED
+        description: Not the publisher owner
+      - name: GAME_NOT_PUBLISHED
+        description: Cannot generate keys for draft game
+
+  - name: revokeApiKey
+    type: mutation
+    method: POST
+    endpoint: "<server action>"
+    description: Deactivate (revoke) an API key. Sets is_active=false. Does not delete the key — retains audit trail.
+    input:
+      fields:
+        - name: keyId
+          type: integer
+          required: true
+    validations:
+      - step: 1
+        name: authenticated
+        type: auth
+        description: User must have active Enoki session
+        onFail: AUTH_REQUIRED
+      - step: 2
+        name: ownsPublisher
+        type: auth
+        description: User must own the publisher that owns the game this key belongs to
+        onFail: UNAUTHORIZED
+    output:
+      fields:
+        - name: success
+          type: boolean
+          required: true
+    errors:
+      - name: AUTH_REQUIRED
+        description: Not logged in
+      - name: UNAUTHORIZED
+        description: Not the publisher owner
+
+  - name: getApiKeys
+    type: query
+    method: GET
+    endpoint: "<server action>"
+    description: List API keys for a game. Full keys are never returned — only masked prefix.
+    input:
+      fields:
+        - name: gameId
+          type: integer
+          required: true
+    validations:
+      - step: 1
+        name: authenticated
+        type: auth
+        description: User must have active Enoki session
+        onFail: AUTH_REQUIRED
+      - step: 2
+        name: ownsPublisher
+        type: auth
+        description: User must own the publisher that owns this game
+        onFail: UNAUTHORIZED
+    output:
+      fields:
+        - name: keys
+          type: array
+          required: true
+          description: Array of key objects with id, key_prefix (masked: "morita_sk_xxxx..."), is_active, last_used_at, created_at
+
+  # ── Inventory ──
+
+  - name: getMyInventory
+    type: query
+    method: GET
+    endpoint: "<server action>"
+    description: List all on-chain items owned by the current user across all games. Reads from on-chain index (item_cache + gRPC events).
+    input:
+      fields: []
+    validations:
+      - step: 1
+        name: authenticated
+        type: auth
+        description: User must be logged in via Enoki
+        onFail: AUTH_REQUIRED
+    output:
+      fields:
+        - name: items
+          type: array
+          required: true
+          description: Array of item objects with id, name, imageBlobId, gameId, gameName, itemType, rarity, suiItemId
+
+  - name: getTransactionHistory
+    type: query
+    method: GET
+    endpoint: "<server action>"
+    description: Activity timeline for the current user. Shows mints, claims, sales, purchases, barters, escrows.
+    input:
+      fields:
+        - name: limit
+          type: integer
+          required: false
+          description: Max events to return (default 50)
+        - name: cursor
+          type: string
+          required: false
+          description: Pagination cursor
+    validations:
+      - step: 1
+        name: authenticated
+        type: auth
+        description: User must be logged in via Enoki
+        onFail: AUTH_REQUIRED
+    output:
+      fields:
+        - name: events
+          type: array
+          required: true
+          description: Array of event objects with id, txHash, eventType, fromAddress, toAddress, itemBlobId, metadata, createdAt
+        - name: nextCursor
+          type: string
+          required: false
+
   # ── Claim ──
+
+  - name: getClaimInfo
+    type: query
+    method: GET
+    endpoint: "<server action>"
+    description: Fetch claim code status and item preview. Public endpoint — no auth required. Used by the claim page to show preview before user logs in.
+    input:
+      fields:
+        - name: code
+          type: string
+          required: true
+    output:
+      fields:
+        - name: isValid
+          type: boolean
+          required: true
+          description: Whether the code exists, is not expired, and is not claimed
+        - name: itemPreview
+          type: object
+          required: false
+          description: Present when isValid=true. Contains name, imageBlobId, gameName, rarity, itemType
+        - name: errorMessage
+          type: string
+          required: false
+          description: Present when isValid=false. e.g. "Claim code not found", "Claim code expired", "Already claimed"
+
   - name: redeemClaimCode
     type: mutation
     method: POST
@@ -424,8 +1017,64 @@ operations:
         description: Code already redeemed
       - name: NFT_ALREADY_CLAIMED
         description: NFT template already claimed
-
   # ── Marketplace ──
+
+  - name: listForSale
+    type: mutation
+    method: POST
+    endpoint: "<server action>"
+    description: >
+      List a player-owned item in Sui Kiosk for direct sale via Flow B.
+      Backend checks/auto-creates Kiosk if needed. Frontend builds PTB with
+      `kiosk_ext::list_for_sale(Item, Kiosk, KioskOwnerCapability, Coin<SUI>, royalty_bps?)`.
+      If royalty_bps is provided, installs Kiosk royalty rule.
+      User auto-signs via Enoki — no confirmation popup.
+    input:
+      fields:
+        - name: itemId
+          type: string
+          required: true
+          description: On-chain item object ID (suiItemId)
+        - name: price
+          type: integer
+          required: true
+          description: Sale price in MIST
+        - name: royaltyBps
+          type: integer
+          required: false
+          description: Optional royalty in basis points (e.g. 250 = 2.5%). Installs Kiosk royalty rule if set.
+    validations:
+      - step: 1
+        name: authenticated
+        type: auth
+        description: User must be logged in via Enoki
+        onFail: AUTH_REQUIRED
+      - step: 2
+        name: ownsItem
+        type: state
+        description: User's Sui address must be the current owner of the item on-chain
+        onFail: NOT_ITEM_OWNER
+      - step: 3
+        name: kioskReady
+        type: state
+        description: >
+          Kiosk must exist for this user. Backend auto-creates Kiosk (Flow A) if
+          none found. Stores Kiosk ID + KioskOwnerCapability ID in user_kiosks table.
+          On failure, falls back to on-chain lookup before creating.
+        onFail: KIOSK_CREATE_FAILED
+    output:
+      fields:
+        - name: txDigest
+          type: string
+          required: true
+    errors:
+      - name: AUTH_REQUIRED
+        description: Not logged in
+      - name: NOT_ITEM_OWNER
+        description: User does not own this item
+      - name: KIOSK_CREATE_FAILED
+        description: Failed to auto-create Kiosk
+
   - name: getMarketplaceListings
     type: query
     method: GET
@@ -458,6 +1107,27 @@ operations:
         - name: total
           type: integer
           required: true
+
+  - name: getListingDetail
+    type: query
+    method: GET
+    endpoint: "<server action>"
+    description: Get detail for a single marketplace listing (sale or barter)
+    input:
+      fields:
+        - name: listingId
+          type: string
+          required: true
+          description: On-chain listing or escrow ID
+    output:
+      fields:
+        - name: listing
+          type: object
+          required: true
+          description: >
+            Full listing details: type (sale|barter), item info (name, imageBlobId, gameName,
+            rarity, itemType), price/seller (for sales), conditions/initiator (for barters),
+            status, createdAt
 
   - name: buyItem
     type: mutation
@@ -594,47 +1264,13 @@ operations:
         - name: txDigest
           type: string
           required: true
-
-  # ── API Keys ──
-  - name: generateApiKey
-    type: mutation
-    method: POST
-    endpoint: "<server action>"
-    description: Generate a new API key for a published game
-    input:
-      fields:
-        - name: gameId
-          type: integer
-          required: true
-    validations:
-      - step: 1
-        name: ownsPublisher
-        type: auth
-        description: User must own the publisher
-        onFail: UNAUTHORIZED
-      - step: 2
-        name: isPublished
-        type: state
-        description: Game must be published
-        onFail: GAME_NOT_PUBLISHED
-    output:
-      fields:
-        - name: apiKey
-          type: string
-          required: true
-          description: Full key — shown once
-    errors:
-      - name: UNAUTHORIZED
-        description: Not the publisher owner
-      - name: GAME_NOT_PUBLISHED
-        description: Cannot generate keys for draft game
-
   # ── Analytics ──
+
   - name: getPublisherAnalytics
     type: query
     method: GET
     endpoint: "<server action>"
-    description: Aggregated stats for a publisher
+    description: Aggregated stats for a publisher with time-range filtering
     input:
       fields:
         - name: publisherId
@@ -643,23 +1279,73 @@ operations:
         - name: timeRange
           type: string
           required: false
-          description: "7d | 30d | all"
+          description: >
+            Time range for aggregations.
+            "7d" — last 7 days (default),
+            "30d" — last 30 days,
+            "all" — all time.
+            Affects totalMinted, totalClaimed, activePlayers, txVolume calculations.
     output:
       fields:
         - name: totalMinted
           type: integer
           required: true
+          description: Number of items minted in the selected time range
         - name: totalClaimed
           type: integer
           required: true
+          description: Number of claim codes redeemed in the selected time range
         - name: activePlayers
           type: integer
           required: true
+          description: Unique player addresses that claimed or traded items in the selected time range
         - name: txVolume
           type: integer
           required: true
+          description: Total on-chain transactions (mints, sales, barters, claims) in the selected time range
+
+  - name: getPublisherActivity
+    type: query
+    method: GET
+    endpoint: "<server action>"
+    description: Event log for a publisher — timeline of all on-chain events across their games
+    input:
+      fields:
+        - name: publisherId
+          type: string
+          required: true
+        - name: gameId
+          type: integer
+          required: false
+          description: Filter to a specific game
+        - name: eventType
+          type: string
+          required: false
+          description: "Filter by event type: mint | burn | claim | sale | barter | game_publish | game_update"
+        - name: timeRange
+          type: string
+          required: false
+          description: "7d | 30d | all (default all)"
+        - name: limit
+          type: integer
+          required: false
+          description: Max events to return (default 50)
+        - name: cursor
+          type: string
+          required: false
+          description: Pagination cursor
+    output:
+      fields:
+        - name: events
+          type: array
+          required: true
+          description: Array of event objects with id, txHash, eventType, gameId, gameName, fromAddress, toAddress, itemBlobId, metadata, createdAt
+        - name: nextCursor
+          type: string
+          required: false
 
   # ── Admin ──
+
   - name: verifyPublisher
     type: mutation
     method: POST
@@ -748,3 +1434,4 @@ operations:
     errors:
       - name: CONTRACTS_NOT_DEPLOYED
         description: PACKAGE_ID not configured
+

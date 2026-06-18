@@ -1,9 +1,16 @@
+# All Move functions called via Enoki must be whitelisted in Enoki Portal
+# as allowedMoveCallTargets before going live. See design doc Section 4 for full list.
+#
+# Known limitation: GameItem uses `has key, store` for Sui Kiosk compatibility.
+# This prevents enforcing custom transfer rules (e.g., "soulbound" items) at the
+# Move level in MVP. Future: `has key` only + custom wrapper for special items.
+
 schemaVersion: 1
 name: morita-contracts
 description: Sui Move smart contracts for Morita — cross-game inventory & commerce protocol
 language: Move
 framework: Sui
-kind: Solana
+kind: Sui
 
 events:
   - name: PublisherCreated
@@ -21,6 +28,7 @@ events:
 
   - name: GameCreated
     module: registry
+    description: Emitted by initiate_publish when the Publisher owner creates a new Game (owned, not yet shared).
     fields:
       - name: game_id
         type: "ID"
@@ -31,6 +39,20 @@ events:
       - name: name
         type: String
         indexed: false
+
+  - name: GameShared
+    module: registry
+    description: Emitted by finalize_publish when the Game is shared and GameCapability is transferred to the platform.
+    fields:
+      - name: game_id
+        type: "ID"
+        indexed: true
+      - name: publisher_id
+        type: "ID"
+        indexed: true
+      - name: platform_addr
+        type: address
+        indexed: true
 
   - name: GameUpdated
     module: registry
@@ -155,12 +177,12 @@ events:
         indexed: true
 
 operations:
-  # ── registry.move ──
+  # ═══ registry.move ═══
   - name: createPublisher
     type: mutation
     target: registry.move
     function: "create_publisher(name: String, ctx: &mut TxContext)"
-    description: Create a new Publisher on-chain (self-service, anyone can call)
+    description: Create a new Publisher on-chain (self-service, anyone can call). Flow B.
     input:
       fields:
         - name: name
@@ -179,8 +201,8 @@ operations:
   - name: verifyPublisher
     type: mutation
     target: registry.move
-    function: "verify_publisher(admin: &AdminCap, publisher_id: ID, ctx: &mut TxContext)"
-    description: Admin toggles verification status of a publisher (Flow A)
+    function: "verify_publisher(publisher_id: ID, admin: &AdminCap, ctx: &mut TxContext)"
+    description: Admin toggles verification status. Flow A — backend-only.
     input:
       fields:
         - name: publisher_id
@@ -198,11 +220,11 @@ operations:
       - name: E_UNAUTHORIZED
         description: Caller does not hold AdminCap
 
-  - name: createGame
+  - name: initiatePublish
     type: mutation
     target: registry.move
-    function: "create_game(publisher: &Publisher, name: String, ctx: &mut TxContext)"
-    description: Create a new Game under a Publisher, returns Game + GameCapability (Flow B)
+    function: "initiate_publish(publisher: &Publisher, name: String, ctx: &mut TxContext)"
+    description: Publisher owner creates a new Game (owned, NOT shared yet) + PublishTicket hot potato. Step 1 of 2. Flow B.
     input:
       fields:
         - name: publisher
@@ -222,44 +244,80 @@ operations:
         - name: game
           type: Game
           required: true
-        - name: capability
-          type: GameCapability
+          description: Newly created Game (owned, not shared)
+        - name: ticket
+          type: PublishTicket
           required: true
+          description: Hot potato — NO abilities. MUST be consumed by finalize_publish in same PTB.
     errors:
       - name: E_UNAUTHORIZED
         description: Caller is not the publisher owner
 
+  - name: finalizePublish
+    type: mutation
+    target: registry.move
+    function: "finalize_publish(game: &mut Game, ticket: PublishTicket, platform_addr: address, ctx: &mut TxContext)"
+    description: Consumes PublishTicket. Creates GameCapability → transfers to platform_addr. Shares Game. Step 2 of 2. Flow B.
+    input:
+      fields:
+        - name: game
+          type: "&mut Game"
+          required: true
+        - name: ticket
+          type: PublishTicket
+          required: true
+        - name: platform_addr
+          type: address
+          required: true
+    validations:
+      - step: 1
+        name: ticketMatchesGame
+        type: business
+        description: PublishTicket.game_id must match Game.id
+        onFail: E_TICKET_MISMATCH
+    output:
+      fields:
+        - name: game_capability
+          type: GameCapability
+          required: true
+    errors:
+      - name: E_TICKET_MISMATCH
+        description: PublishTicket does not correspond to this Game
+
   - name: updateGame
     type: mutation
     target: registry.move
-    function: "update_game(cap: &GameCapability, new_name: String, ctx: &mut TxContext)"
-    description: Update game metadata (name) — held by platform (Flow A)
+    function: "update_game(game: &mut Game, new_name: String, ctx: &mut TxContext)"
+    description: Update game metadata. Game must be active (shared object). Flow A — platform calls.
     input:
       fields:
+        - name: game
+          type: "&mut Game"
+          required: true
         - name: new_name
           type: String
           required: true
     validations:
       - step: 1
-        name: hasGameCapability
-        type: auth
-        description: Caller must hold GameCapability for this game
-        onFail: E_UNAUTHORIZED
+        name: gameIsActive
+        type: state
+        description: Game must not be paused
+        onFail: E_GAME_PAUSED
     output:
       fields: []
     errors:
-      - name: E_UNAUTHORIZED
-        description: Missing GameCapability
+      - name: E_GAME_PAUSED
+        description: Game is paused
 
   - name: pauseGame
     type: mutation
     target: registry.move
-    function: "pause_game(admin: &AdminCap, game_id: ID, ctx: &mut TxContext)"
-    description: Admin pauses a game (emergency control, Flow A)
+    function: "pause_game(game: &mut Game, admin: &AdminCap, ctx: &mut TxContext)"
+    description: Admin pauses a game. Flow A.
     input:
       fields:
-        - name: game_id
-          type: ID
+        - name: game
+          type: "&mut Game"
           required: true
     validations:
       - step: 1
@@ -276,12 +334,12 @@ operations:
   - name: resumeGame
     type: mutation
     target: registry.move
-    function: "resume_game(admin: &AdminCap, game_id: ID, ctx: &mut TxContext)"
-    description: Admin resumes a paused game (Flow A)
+    function: "resume_game(game: &mut Game, admin: &AdminCap, ctx: &mut TxContext)"
+    description: Admin resumes a paused game. Flow A.
     input:
       fields:
-        - name: game_id
-          type: ID
+        - name: game
+          type: "&mut Game"
           required: true
     validations:
       - step: 1
@@ -295,14 +353,18 @@ operations:
       - name: E_UNAUTHORIZED
         description: Missing AdminCap
 
-  # ── item.move ──
+  # ═══ item.move ═══
   - name: mintItem
     type: mutation
     target: item.move
-    function: "mint(cap: &GameCapability, item_id: u64, item_type: String, rarity: String, blob_id: String, supply: Option<u64>, recipient: address, ctx: &mut TxContext)"
-    description: Mint a GameItem to a recipient (Flow A — platform calls with GameCapability)
+    function: "mint(game: &mut Game, cap: &GameCapability, item_id: u64, item_type: String, rarity: String, blob_id: String, supply: Option<u64>, recipient: address, ctx: &mut TxContext)"
+    description: Mint a GameItem to a recipient. On-chain double-mint prevention via game.minted_items. Flow A.
     input:
       fields:
+        - name: game
+          type: "&mut Game"
+          required: true
+          description: Shared Game object for minted_items tracking
         - name: item_id
           type: u64
           required: true
@@ -330,7 +392,7 @@ operations:
       - step: 2
         name: itemNotMinted
         type: state
-        description: item_id must not have already been minted (for NFTs)
+        description: game.minted_items.contains(item_id) must be false (on-chain trustless check)
         onFail: E_ITEM_EXISTS
     output:
       fields:
@@ -341,17 +403,20 @@ operations:
       - name: E_UNAUTHORIZED
         description: Missing GameCapability
       - name: E_ITEM_EXISTS
-        description: Item with this item_id already minted (NFT duplicate)
+        description: Item with this item_id already minted (NFT duplicate prevention)
 
   - name: burnItem
     type: mutation
     target: item.move
-    function: "burn(cap: &GameCapability, item: GameItem, ctx: &mut TxContext)"
-    description: Destroy a GameItem (Flow A — platform calls)
+    function: "burn(item: GameItem, game: &mut Game, cap: &GameCapability, ctx: &mut TxContext)"
+    description: Destroy a GameItem, remove from game.minted_items. Flow A.
     input:
       fields:
         - name: item
           type: GameItem
+          required: true
+        - name: game
+          type: "&mut Game"
           required: true
     validations:
       - step: 1
@@ -359,18 +424,25 @@ operations:
         type: auth
         description: GameCapability must match the item's game_id
         onFail: E_UNAUTHORIZED
+      - step: 2
+        name: itemBelongsToGame
+        type: business
+        description: item.game_id must match game.id
+        onFail: E_ITEM_GAME_MISMATCH
     output:
       fields: []
     errors:
       - name: E_UNAUTHORIZED
         description: GameCapability mismatch
+      - name: E_ITEM_GAME_MISMATCH
+        description: Item does not belong to this Game
 
-  # ── kiosk_ext.move ──
-  - name: listWithRoyalty
+  # ═══ kiosk_ext.move ═══
+  - name: listForSale
     type: mutation
     target: kiosk_ext.move
-    function: "list_with_royalty(item: GameItem, kiosk: &mut Kiosk, kiosk_owner_cap: &KioskOwnerCapability, price: Coin<SUI>, royalty_bps: Option<u64>, ctx: &mut TxContext)"
-    description: List a GameItem for sale in Kiosk with optional royalty (Flow B)
+    function: "list_for_sale(item: GameItem, kiosk: &mut Kiosk, kiosk_owner_cap: &KioskOwnerCapability, price: Coin<SUI>, royalty_bps: Option<u64>, ctx: &mut TxContext)"
+    description: List a GameItem for sale in seller's Kiosk with optional royalty. Flow B.
     input:
       fields:
         - name: item
@@ -392,33 +464,35 @@ operations:
       - step: 1
         name: ownsItem
         type: auth
-        description: Caller must own the item
+        description: Caller must own the item (Sui object ownership)
         onFail: E_UNAUTHORIZED
       - step: 2
+        name: ownsKiosk
+        type: auth
+        description: kiosk_owner_cap must match kiosk (kiosk::place enforces)
+        onFail: E_UNAUTHORIZED
+      - step: 3
         name: validRoyalty
         type: input
-        description: If provided, royalty_bps must be between 0 and 10000
+        description: If provided, royalty_bps 0-10000
         onFail: E_INVALID_ROYALTY
     output:
       fields: []
     errors:
       - name: E_UNAUTHORIZED
-        description: Item not owned by caller
+        description: Item not owned or cap mismatch
       - name: E_INVALID_ROYALTY
-        description: Royalty basis points out of range
+        description: Royalty out of range
 
   - name: buyItem
     type: mutation
     target: kiosk_ext.move
-    function: "buy_item(kiosk: &mut Kiosk, kiosk_owner_cap: &KioskOwnerCapability, item_id: ID, payment: Coin<SUI>, ctx: &mut TxContext)"
-    description: Purchase a listed item from Kiosk (Flow B)
+    function: "buy_item(kiosk: &mut Kiosk, item_id: ID, payment: Coin<SUI>, ctx: &mut TxContext)"
+    description: Purchase item from Kiosk. Buyer does NOT need KioskOwnerCapability. Flow B.
     input:
       fields:
         - name: kiosk
           type: "&mut Kiosk"
-          required: true
-        - name: kiosk_owner_cap
-          type: "&KioskOwnerCapability"
           required: true
         - name: item_id
           type: ID
@@ -430,12 +504,12 @@ operations:
       - step: 1
         name: itemListed
         type: state
-        description: Item must be listed in the Kiosk
+        description: Item must be listed in Kiosk
         onFail: E_NOT_LISTED
       - step: 2
         name: correctPrice
         type: business
-        description: Payment must match the listing price
+        description: Payment must match listing price
         onFail: E_PRICE_MISMATCH
     output:
       fields:
@@ -448,12 +522,12 @@ operations:
       - name: E_PRICE_MISMATCH
         description: Payment does not match listed price
 
-  # ── escrow.move ──
+  # ═══ escrow.move ═══
   - name: lockItemForAny
     type: mutation
     target: escrow.move
     function: "lock_item_for_any(item: GameItem, conditions: EscrowConditions, ctx: &mut TxContext)"
-    description: Lock an item in escrow for public barter (Flow B)
+    description: Lock an item in escrow for public barter. Flow B.
     input:
       fields:
         - name: item
@@ -480,18 +554,18 @@ operations:
   - name: lockItemForTarget
     type: mutation
     target: escrow.move
-    function: "lock_item_for_target(item: GameItem, counterparty: address, conditions: EscrowConditions, ctx: &mut TxContext)"
-    description: Lock an item in escrow for direct barter to a specific address (Flow B)
+    function: "lock_item_for_target(item: GameItem, conditions: EscrowConditions, counterparty: address, ctx: &mut TxContext)"
+    description: Lock an item for direct barter to counterparty. Flow B.
     input:
       fields:
         - name: item
           type: GameItem
           required: true
-        - name: counterparty
-          type: address
-          required: true
         - name: conditions
           type: EscrowConditions
+          required: true
+        - name: counterparty
+          type: address
           required: true
     validations:
       - step: 1
@@ -512,7 +586,7 @@ operations:
     type: mutation
     target: escrow.move
     function: "fulfill_escrow(escrow: &mut Escrow, my_item: GameItem, ctx: &mut TxContext)"
-    description: Fulfill an escrow with instant 1:1 swap (Flow B)
+    description: Fulfill escrow with instant 1:1 swap. Flow B.
     input:
       fields:
         - name: escrow
@@ -525,7 +599,7 @@ operations:
       - step: 1
         name: escrowActive
         type: state
-        description: Escrow must be in active state
+        description: Escrow must be active
         onFail: E_ESCROW_INACTIVE
       - step: 2
         name: ownsItem
@@ -542,6 +616,11 @@ operations:
         type: business
         description: Fulfiller cannot be the initiator
         onFail: E_SELF_FULFILL
+      - step: 5
+        name: counterpartyCheck
+        type: business
+        description: If targeted, fulfiller must be the counterparty
+        onFail: E_NOT_COUNTERPARTY
     output:
       fields:
         - name: received_item
@@ -556,12 +635,14 @@ operations:
         description: Item does not match escrow conditions
       - name: E_SELF_FULFILL
         description: Cannot fulfill own escrow
+      - name: E_NOT_COUNTERPARTY
+        description: Escrow is targeted but caller is not the counterparty
 
   - name: fulfillEscrowWithValue
     type: mutation
     target: escrow.move
     function: "fulfill_escrow_with_value(escrow: &mut Escrow, my_item: GameItem, token_topup: Coin<SUI>, ctx: &mut TxContext)"
-    description: Fulfill escrow with SUI top-up to cover value gap (Flow B)
+    description: Fulfill escrow with SUI top-up for value gap. Flow B.
     input:
       fields:
         - name: escrow
@@ -585,10 +666,20 @@ operations:
         description: Caller must own my_item
         onFail: E_UNAUTHORIZED
       - step: 3
+        name: matchesConditions
+        type: business
+        description: my_item must match escrow conditions
+        onFail: E_CONDITION_MISMATCH
+      - step: 4
         name: notSelf
         type: business
         description: Fulfiller cannot be initiator
         onFail: E_SELF_FULFILL
+      - step: 5
+        name: counterpartyCheck
+        type: business
+        description: If targeted, fulfiller must be counterparty
+        onFail: E_NOT_COUNTERPARTY
     output:
       fields:
         - name: received_item
@@ -599,14 +690,18 @@ operations:
         description: Escrow already fulfilled or cancelled
       - name: E_UNAUTHORIZED
         description: Item not owned
+      - name: E_CONDITION_MISMATCH
+        description: Item does not match escrow conditions
       - name: E_SELF_FULFILL
         description: Cannot fulfill own escrow
+      - name: E_NOT_COUNTERPARTY
+        description: Escrow is targeted but caller is not the counterparty
 
   - name: cancelEscrow
     type: mutation
     target: escrow.move
     function: "cancel_escrow(escrow: &mut Escrow, ctx: &mut TxContext)"
-    description: Cancel own escrow, return item to initiator (Flow B)
+    description: Cancel own escrow, return item to initiator. Flow B.
     input:
       fields:
         - name: escrow
