@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Wallet } from 'lucide-react';
+import WalletButton from '@/components/shared/wallet-button';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth-store';
 
@@ -29,17 +29,7 @@ export default function Topbar() {
           ))}
         </nav>
         <div className="flex items-center gap-3">
-          {isLoggedIn ? (
-            <div className="flex items-center gap-3">
-              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-white border-2 border-[#1E2044] rounded-xl">
-                <Wallet className="w-3.5 h-3.5 text-blueberry" />
-                <span className="text-xs font-mono font-bold text-[#1E2044]">{displayName}</span>
-              </div>
-              <button onClick={logout} className="text-[10px] font-mono font-extrabold uppercase tracking-wider text-[#1E2044]/60 hover:text-red-500 transition-colors cursor-pointer">Disconnect</button>
-            </div>
-          ) : (
-            <Link href="/" className="px-4 py-2 bg-blueberry text-white border-2 border-[#1E2044] font-display font-black text-xs uppercase rounded-xl shadow-[2px_2px_0px_0px_var(--color-border-dark)] hover:-translate-y-0.5 transition-all">Connect</Link>
-          )}
+          <WalletButton isLoggedIn={isLoggedIn} displayName={displayName} onLogout={logout} />
         </div>
       </div>
     </header>
