@@ -38,7 +38,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-screen bg-brand-bg flex">
-      <Sidebar items={sidebarItems} basePath={activePublisherId ? `/dashboard/${activePublisherId}` : ''} publisherName={publisherName} isVerified={isVerified} className="hidden lg:flex" />
+      <Sidebar items={sidebarItems} publisherName={publisherName} isVerified={isVerified} className="hidden lg:flex" />
       <div className="flex-1 flex flex-col min-h-screen">
         <header className="sticky top-0 z-50 bg-brand-bg/90 backdrop-blur-md border-b-3 border-[#1E2044] px-4 sm:px-6 py-3">
           <div className="flex items-center justify-between gap-4">

@@ -19,12 +19,11 @@ const DEFAULT_ITEMS: SidebarItem[] = [
 interface SidebarProps {
   publisherName: string;
   isVerified: boolean;
-  basePath: string;
   items?: SidebarItem[];
   className?: string;
 }
 
-export default function Sidebar({ publisherName, isVerified, basePath, items = DEFAULT_ITEMS, className }: SidebarProps) {
+export default function Sidebar({ publisherName, isVerified, items = DEFAULT_ITEMS, className }: SidebarProps) {
   const pathname = usePathname();
 
   return (
@@ -37,10 +36,9 @@ export default function Sidebar({ publisherName, isVerified, basePath, items = D
       </div>
       <nav className="flex-1 p-3 space-y-1">
         {items.map((item) => {
-          const fullHref = `${basePath}${item.href}`;
-          const isActive = pathname.startsWith(fullHref);
+          const isActive = pathname.startsWith(item.href);
           return (
-            <Link key={item.href} href={fullHref} className={cn('flex items-center gap-3 px-3 py-2.5 rounded-xl font-mono text-xs font-bold uppercase tracking-wider transition-all', isActive ? 'bg-blueberry text-white border-2 border-[#1E2044] shadow-[2px_2px_0px_0px_var(--color-border-dark)]' : 'text-[#1E2044]/60 hover:bg-blueberry-cream hover:text-[#1E2044]')}>
+            <Link key={item.href} href={item.href} className={cn('flex items-center gap-3 px-3 py-2.5 rounded-xl font-mono text-xs font-bold uppercase tracking-wider transition-all', isActive ? 'bg-blueberry text-white border-2 border-[#1E2044] shadow-[2px_2px_0px_0px_var(--color-border-dark)]' : 'text-[#1E2044]/60 hover:bg-blueberry-cream hover:text-[#1E2044]')}>
               {item.icon}
               {item.label}
             </Link>
