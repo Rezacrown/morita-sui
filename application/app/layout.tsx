@@ -1,6 +1,7 @@
 import type {Metadata} from 'next';
 import { Inter, Space_Grotesk, JetBrains_Mono } from 'next/font/google';
-import './globals.css'; // Global styles
+import './globals.css';
+import Providers from '@/app/providers';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -26,7 +27,7 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
   return (
     <html lang="en" className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable}`}>
       <body className="font-sans antialiased text-[#151515] bg-[#FDFDF6]" suppressHydrationWarning>
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
