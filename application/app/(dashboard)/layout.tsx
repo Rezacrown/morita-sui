@@ -11,15 +11,15 @@ import StatusBadge from '@/components/shared/status-badge';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { isLoggedIn, userMode, displayName, activePublisherId, setActivePublisher, login } = useAuthStore();
+  const { isLoggedIn, isDevMode, displayName, activePublisherId, setActivePublisher } = useAuthStore();
 
-  if (!isLoggedIn || userMode !== 'dev') {
+  if (!isLoggedIn || !isDevMode) {
     return (
       <div className="min-h-screen bg-brand-bg flex items-center justify-center p-6">
         <div className="bg-white border-3 border-[#1E2044] rounded-2xl shadow-[4px_4px_0px_0px_var(--color-border-dark)] p-8 text-center max-w-md">
           <h1 className="font-display font-black text-xl uppercase tracking-tight text-[#1E2044] mb-3">Developer Dashboard</h1>
-          <p className="font-sans text-sm text-[#1E2044]/60 mb-6">Connect as a developer to access your publisher workspace.</p>
-          <button onClick={() => login('dev')} className="px-6 py-3 bg-blueberry text-white border-3 border-[#1E2044] font-display font-black rounded-xl shadow-[3px_3px_0px_0px_var(--color-border-dark)] hover:-translate-y-0.5 transition-all uppercase text-sm cursor-pointer">Login as Developer</button>
+          <p className="font-sans text-sm text-[#1E2044]/60 mb-6">Enable Dev Mode from the topbar to access your publisher workspace.</p>
+          <button onClick={() => router.push('/inventory')} className="px-6 py-3 bg-blueberry text-white border-3 border-[#1E2044] font-display font-black rounded-xl shadow-[3px_3px_0px_0px_var(--color-border-dark)] hover:-translate-y-0.5 transition-all uppercase text-sm cursor-pointer">Go to Hub</button>
         </div>
       </div>
     );

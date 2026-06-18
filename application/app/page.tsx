@@ -16,7 +16,7 @@ import LoginModal from '@/components/landing/login-modal';
 
 export default function LandingPage() {
   const router = useRouter();
-  const { isLoggedIn, userMode } = useAuthStore();
+  const { isLoggedIn } = useAuthStore();
   const [showLoginModal, setShowLoginModal] = useState(false);
 
   return (
@@ -25,7 +25,7 @@ export default function LandingPage() {
       <div id="hero-section-card" className="relative z-10">
         <Hero
           onOpenLoginModal={() => setShowLoginModal(true)}
-          isWalletConnected={isLoggedIn && userMode === 'gamer'}
+          isWalletConnected={isLoggedIn}
         />
         <BrandMarquee />
       </div>

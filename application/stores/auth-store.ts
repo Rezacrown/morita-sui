@@ -1,39 +1,41 @@
 import { create } from "zustand";
 
-type UserMode = "gamer" | "dev" | null;
-
 interface AuthState {
   isLoggedIn: boolean;
-  userMode: UserMode;
+  isDevMode: boolean;
   suiAddress: string | null;
   displayName: string | null;
   activePublisherId: string | null;
-  login: (mode: UserMode) => void;
+  login: (name: string) => void;
   logout: () => void;
+  enterDevMode: () => void;
+  exitDevMode: () => void;
   setActivePublisher: (id: string) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   isLoggedIn: false,
-  userMode: null,
+  isDevMode: false,
   suiAddress: null,
   displayName: null,
   activePublisherId: null,
-  login: (mode) =>
+  login: (name) =>
     set({
       isLoggedIn: true,
-      userMode: mode,
-      suiAddress: mode === "gamer" ? "0xabc123...def" : "0xdev001...aaa",
-      displayName: mode === "gamer" ? "CryptoGamer99" : "IndieQuest Dev",
-      activePublisherId: mode === "dev" ? "pub-001" : null,
+      isDevMode: false,
+      suiAddress: "0xabc123...def",
+      displayName: name || "CryptoGamer99",
+      activePublisherId: "pub-001",
     }),
   logout: () =>
     set({
       isLoggedIn: false,
-      userMode: null,
+      isDevMode: false,
       suiAddress: null,
       displayName: null,
       activePublisherId: null,
     }),
+  enterDevMode: () => set({ isDevMode: true }),
+  exitDevMode: () => set({ isDevMode: false }),
   setActivePublisher: (id) => set({ activePublisherId: id }),
 }));

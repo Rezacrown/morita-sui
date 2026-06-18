@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { X, Mail, ShieldCheck, Key, Gamepad2, Code2 } from 'lucide-react';
+import { X, Mail, ShieldCheck, Key } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth-store';
 
 interface LoginModalProps {
@@ -10,15 +10,12 @@ interface LoginModalProps {
   onClose: () => void;
 }
 
-type Mode = 'gamer' | 'dev';
-
 export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
   const router = useRouter();
   const login = useAuthStore((s) => s.login);
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [mode, setMode] = useState<Mode>('gamer');
 
   if (!isOpen) return null;
 
@@ -28,9 +25,9 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
     setIsLoading(true);
     setTimeout(() => {
       setIsLoading(false);
-      login(mode);
+      login(name);
       onClose();
-      router.push(mode === 'gamer' ? '/inventory' : '/dashboard');
+      router.push('/inventory');
     }, 1500);
   };
 
@@ -45,26 +42,20 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
               <Key className="w-4 h-4 text-blueberry-dark" />
             </div>
             <div>
-              <h3 className="font-display font-black text-sm uppercase text-border-dark tracking-tight">ENOKI PORTAL</h3>
-              <p className="text-[10px] font-mono text-border-dark/50 leading-none">MOCK AUTH</p>
+              <h3 className="font-display font-black text-sm uppercase text-border-dark tracking-tight">Connect to Morita</h3>
+              <p className="text-[10px] font-mono text-border-dark/50 leading-none">zkLogin via Enoki</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1.5 border-2 border-border-dark rounded-lg bg-white hover:bg-border-dark/5 transition-all text-border-dark cursor-pointer"><X className="w-4 h-4" /></button>
         </div>
 
-        {/* Mode selector */}
-        <div className="flex gap-2 mb-6">
-          <button onClick={() => setMode('gamer')} className={`flex-1 flex items-center gap-2 px-4 py-3 border-3 border-border-dark rounded-xl font-display font-black text-xs uppercase transition-all cursor-pointer ${mode === 'gamer' ? 'bg-blueberry text-white shadow-[3px_3px_0px_0px_var(--color-border-dark)]' : 'bg-white text-border-dark hover:bg-blueberry-cream'}`}><Gamepad2 className="w-4 h-4" /> Gamer</button>
-          <button onClick={() => setMode('dev')} className={`flex-1 flex items-center gap-2 px-4 py-3 border-3 border-border-dark rounded-xl font-display font-black text-xs uppercase transition-all cursor-pointer ${mode === 'dev' ? 'bg-blueberry text-white shadow-[3px_3px_0px_0px_var(--color-border-dark)]' : 'bg-white text-border-dark hover:bg-blueberry-cream'}`}><Code2 className="w-4 h-4" /> Developer</button>
-        </div>
-
-        <div className="bg-blueberry-light/10 border-2 border-blueberry-light text-xs font-mono p-3 rounded-xl mb-6 text-border-dark/80 leading-relaxed flex items-start gap-2">
-          <span>Mock login for testing. {mode === 'gamer' ? 'You will be redirected to the Gamer Hub.' : 'You will be redirected to the Developer Dashboard.'}</span>
+        <div className="bg-blueberry-light/10 border-2 border-blueberry-light text-xs font-mono p-3 rounded-xl mb-6 text-border-dark/80 leading-relaxed">
+          Zero gas, zero passphrases. You will be redirected to the Gamer Hub. From there, you can access the Developer Dashboard.
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-mono font-bold text-border-dark/70 uppercase mb-1.5">Player Name / Username</label>
+            <label className="block text-xs font-mono font-bold text-border-dark/70 uppercase mb-1.5">Name / Username</label>
             <input type="text" placeholder="e.g. cyber_samurai" required value={name} onChange={(e) => setName(e.target.value)} className="w-full px-3.5 py-3 bg-white border-2 border-border-dark rounded-xl text-sm text-border-dark placeholder-border-dark/40 font-mono focus:outline-none focus:ring-2 focus:ring-blueberry" />
           </div>
           <div>
@@ -78,12 +69,12 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
             {isLoading ? (
               <><div className="w-4 h-4 border-2 border-blueberry-light border-t-transparent rounded-full animate-spin" /><span>Authenticating...</span></>
             ) : (
-              <><ShieldCheck className="w-4 h-4" /><span>Generate {mode === 'gamer' ? 'Wallet Pass' : 'Dev Key'}</span></>
+              <><ShieldCheck className="w-4 h-4" /><span>Connect Wallet</span></>
             )}
           </button>
         </form>
 
-        <div className="mt-4 text-center text-[10px] font-mono text-border-dark/50">Mock authentication powered by Zustand</div>
+        <div className="mt-4 text-center text-[10px] font-mono text-border-dark/50">Powered by Sui Network. No extension required.</div>
       </div>
     </div>
   );

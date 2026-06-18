@@ -8,16 +8,17 @@ interface WalletButtonProps {
   isLoggedIn: boolean;
   displayName?: string | null;
   suiAddress?: string | null;
+  onConnect?: () => void;
   onLogout?: () => void;
   className?: string;
 }
 
-export default function WalletButton({ isLoggedIn, displayName, suiAddress, onLogout, className }: WalletButtonProps) {
+export default function WalletButton({ isLoggedIn, displayName, suiAddress, onConnect, onLogout, className }: WalletButtonProps) {
   if (!isLoggedIn) {
     return (
-      <a href="/" className={cn('px-4 py-2 bg-blueberry text-white border-2 border-[#1E2044] font-display font-black text-xs uppercase rounded-xl shadow-[2px_2px_0px_0px_var(--color-border-dark)] hover:-translate-y-0.5 transition-all', className)}>
+      <button onClick={onConnect} className={cn('px-4 py-2 bg-blueberry text-white border-2 border-[#1E2044] font-display font-black text-xs uppercase rounded-xl shadow-[2px_2px_0px_0px_var(--color-border-dark)] hover:-translate-y-0.5 transition-all cursor-pointer', className)}>
         Connect
-      </a>
+      </button>
     );
   }
 
