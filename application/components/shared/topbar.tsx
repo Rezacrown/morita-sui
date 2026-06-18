@@ -7,15 +7,13 @@ import WalletButton from '@/components/shared/wallet-button';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth-store';
 
-const NAV_LINKS = [
-  { label: 'Marketplace', href: '/marketplace' },
-  { label: 'Inventory', href: '/inventory' },
-  { label: 'History', href: '/history' },
-];
-
 export default function Topbar() {
   const pathname = usePathname();
-  const { isLoggedIn, displayName, logout } = useAuthStore();
+  const { isLoggedIn, userMode, displayName, logout } = useAuthStore();
+
+  const NAV_LINKS = userMode === 'dev'
+    ? [{ label: 'Dashboard', href: '/dashboard' }, { label: 'Marketplace', href: '/marketplace' }, { label: 'Inventory', href: '/inventory' }, { label: 'History', href: '/history' }]
+    : [{ label: 'Marketplace', href: '/marketplace' }, { label: 'Inventory', href: '/inventory' }, { label: 'History', href: '/history' }];
 
   return (
     <header className="sticky top-0 z-[100] bg-brand-bg/90 backdrop-blur-md border-b-3 border-[#1E2044]">
