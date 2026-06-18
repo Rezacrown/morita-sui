@@ -58,7 +58,7 @@ export default function MarketplacePage() {
           <button key={tab} onClick={() => setActiveTab(tab)} className={`px-5 py-2.5 font-display font-black text-xs uppercase rounded-xl border-3 border-[#1E2044] transition-all cursor-pointer ${activeTab === tab ? 'bg-blueberry text-white shadow-[3px_3px_0px_0px_var(--color-border-dark)]' : 'bg-white text-[#1E2044] hover:bg-blueberry-cream'}`}>{tab === 'sale' ? 'For Sale' : tab === 'barter' ? 'For Barter' : 'All'}</button>
         ))}
       </div>
-      <FilterBar filters={[{ label: 'Rarity', key: 'rarity', options: [{ label: 'Legendary', value: 'Legendary' }, { label: 'Epic', value: 'Epic' }, { label: 'Rare', value: 'Rare' }, { label: 'Uncommon', value: 'Uncommon' }, { label: 'Common', value: 'Common' }], value: rarityFilter, onChange: setRarityFilter }]} sortBy={sortBy} onSortChange={setSortBy} searchValue={searchValue} onSearchChange={setSearchValue} className="mb-6" />
+      <FilterBar filters={[{ label: 'Rarity', key: 'rarity', options: [{ label: 'Legendary', value: 'Legendary' }, { label: 'Epic', value: 'Epic' }, { label: 'Rare', value: 'Rare' }, { label: 'Uncommon', value: 'Uncommon' }, { label: 'Common', value: 'Common' }], value: rarityFilter, onChange: setRarityFilter }]} sortBy={sortBy} onSortChange={(v) => setSortBy(v as 'newest' | 'price_asc' | 'price_desc')} searchValue={searchValue} onSearchChange={setSearchValue} className="mb-6" />
       {showListings && filteredListings.length > 0 && (
         <div className="mb-10">
           {activeTab === 'all' && <h2 className="font-display font-black text-lg uppercase tracking-tight text-[#1E2044] mb-4">For Sale</h2>}

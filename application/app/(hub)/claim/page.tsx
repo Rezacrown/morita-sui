@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { Suspense, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth-store';
 import { useClaimStore } from '@/stores/claim-store';
@@ -9,6 +9,14 @@ import EmptyState from '@/components/shared/empty-state';
 import { Loader2, CheckCircle, XCircle } from 'lucide-react';
 
 export default function ClaimPage() {
+  return (
+    <Suspense fallback={<div className="max-w-lg mx-auto mt-20"><div className="bg-white border-3 border-[#1E2044] rounded-2xl p-8 shadow-[4px_4px_0px_0px_var(--color-border-dark)] text-center"><Loader2 className="w-12 h-12 text-blueberry animate-spin mx-auto mb-4" /></div></div>}>
+      <ClaimPageInner />
+    </Suspense>
+  );
+}
+
+function ClaimPageInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { isLoggedIn } = useAuthStore();

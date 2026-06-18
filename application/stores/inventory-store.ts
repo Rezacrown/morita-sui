@@ -13,7 +13,7 @@ type InventoryItem = {
   blobId: string;
   supply: number | null;
   isNft: boolean;
-  attributes: Record<string, string>;
+  attributes: Record<string, string | undefined>;
   status: "published";
   owner: string | null;
   createdAt: string;
