@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import GameBadge from '@/components/shared/game-badge';
 import RarityBadge from '@/components/shared/rarity-badge';
 
-interface ItemDetailData { name: string; gameName: string; itemType: string; rarity: string; description?: string; imageUrl?: string | null; suiItemId?: string | null; supply?: number | null; isNft?: boolean; attributes?: Record<string, string>; status?: string; }
+interface ItemDetailData { name: string; gameName: string; itemType: string; rarity: string; description?: string; imageUrl?: string | null; suiItemId?: string | null; supply?: number | null; isNft?: boolean; attributes?: Record<string, string | undefined>; status?: string; }
 interface ItemDetailProps { item: ItemDetailData; className?: string; children?: React.ReactNode; }
 
 export default function ItemDetail({ item, className, children }: ItemDetailProps) {
@@ -33,7 +33,7 @@ export default function ItemDetail({ item, className, children }: ItemDetailProp
           <div className="mb-6">
             <h3 className="font-display font-black text-sm uppercase tracking-tight text-[#1E2044] mb-3">Attributes</h3>
             <div className="border-2 border-[#1E2044]/20 rounded-xl overflow-hidden">
-              <table className="w-full"><tbody>{Object.entries(item.attributes).map(([key, value]) => (<tr key={key} className="border-b border-[#1E2044]/10 last:border-b-0"><td className="px-4 py-2 text-[10px] font-mono font-extrabold uppercase tracking-wider text-[#1E2044]/60 bg-blueberry-cream/30">{key}</td><td className="px-4 py-2 text-xs font-mono font-bold text-[#1E2044]">{value}</td></tr>))}</tbody></table>
+              <table className="w-full"><tbody>                  {Object.entries(item.attributes).map(([key, value]) => (<tr key={key} className="border-b border-[#1E2044]/10 last:border-b-0"><td className="px-4 py-2 text-[10px] font-mono font-extrabold uppercase tracking-wider text-[#1E2044]/60 bg-blueberry-cream/30">{key}</td><td className="px-4 py-2 text-xs font-mono font-bold text-[#1E2044]">{value ?? '—'}</td></tr>))}</tbody></table>
             </div>
           </div>
         )}

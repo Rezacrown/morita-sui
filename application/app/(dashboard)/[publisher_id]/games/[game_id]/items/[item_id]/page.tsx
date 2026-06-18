@@ -47,7 +47,7 @@ export default function ItemDetailOrEditPage() {
       <div>
         <button onClick={() => router.push(`/dashboard/${publisherId}/games/${gameId}/items`)} className="font-mono text-[10px] font-extrabold uppercase tracking-wider text-blueberry hover:text-blueberry-dark mb-6 cursor-pointer">&larr; Items</button>
         <StatusBadge status="published" className="mb-4" />
-        <ItemDetail item={{ name: existingItem.name, gameName: existingItem.gameName, itemType: existingItem.itemType, rarity: existingItem.rarity, description: existingItem.description, imageUrl: existingItem.imageUrl, suiItemId: existingItem.suiItemId, supply: existingItem.supply, isNft: existingItem.isNft, attributes: existingItem.attributes }}>
+        <ItemDetail item={{ name: existingItem.name, gameName: existingItem.gameName, itemType: existingItem.itemType, rarity: existingItem.rarity, description: existingItem.description, imageUrl: existingItem.imageUrl, suiItemId: existingItem.suiItemId, supply: existingItem.supply, isNft: existingItem.isNft, attributes: existingItem.attributes as Record<string, string | undefined> }}>
           <div className="flex gap-3">
             <div className="bg-blueberry-cream border-2 border-blueberry/20 rounded-xl p-3 flex-1 text-center">
               <span className="block text-[10px] font-mono font-extrabold uppercase tracking-wider text-blueberry-dark">Total Minted</span>
