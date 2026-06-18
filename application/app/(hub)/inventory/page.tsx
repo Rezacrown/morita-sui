@@ -46,7 +46,7 @@ export default function InventoryPage() {
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
         {items.map((item) => (
-          <ItemCard key={item.id} item={{ name: item.name, gameName: item.gameName, itemType: item.itemType, rarity: item.rarity, imageUrl: item.imageUrl, status: item.status }} onClick={() => console.log('View item:', item.id)}>
+          <ItemCard key={item.id} item={{ name: item.name, gameName: item.gameName, itemType: item.itemType, rarity: item.rarity, imageUrl: item.imageUrl, status: item.status }} onClick={() => window.location.href = `/inventory/${item.id}`}>
             <div className="flex gap-2 mt-3 pt-3 border-t-2 border-dashed border-[#1E2044]/15">
               <button onClick={(e) => { e.stopPropagation(); console.log('Sell item:', item.id); }} className="flex-1 px-3 py-2 bg-blueberry text-white border-2 border-[#1E2044] font-display font-black rounded-lg text-[10px] uppercase shadow-[2px_2px_0px_0px_var(--color-border-dark)] hover:-translate-y-0.5 transition-all cursor-pointer">Sell</button>
               <button onClick={(e) => { e.stopPropagation(); console.log('Barter item:', item.id); }} className="flex-1 px-3 py-2 bg-white text-[#1E2044] border-2 border-[#1E2044] font-display font-black rounded-lg text-[10px] uppercase hover:bg-blueberry-cream transition-all cursor-pointer">Barter</button>
