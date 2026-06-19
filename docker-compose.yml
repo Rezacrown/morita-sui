@@ -1,0 +1,21 @@
+services:
+  morita-db:
+    image: postgres:17-alpine
+    container_name: morita-postgres
+    environment:
+      POSTGRES_USER: morita
+      POSTGRES_PASSWORD: morita_pwd
+      POSTGRES_DB: morita
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U morita -d morita"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  pgdata:

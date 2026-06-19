@@ -1,0 +1,124 @@
+Table gamedevs {
+  id serial [primary key]
+  sui_address varchar(200) [unique, not null]
+  email varchar(255)
+  name varchar(255)
+  created_at timestamp [default: `now()`]
+}
+
+Table publishers {
+  id serial [primary key]
+  sui_publisher_id varchar(200) [unique, not null]
+  dev_id integer [not null]
+  name varchar(255) [not null]
+  logo_url varchar(500)
+  is_verified boolean [default: false]
+  created_at timestamp [default: `now()`]
+}
+
+Table games {
+  id serial [primary key]
+  sui_game_id varchar(200) [unique]
+  publisher_id integer [not null]
+  name varchar(255) [not null]
+  description text
+  genre varchar(100)
+  website_url varchar(500)
+  status varchar(20) [default: 'draft']
+  game_capability_id varchar(200)
+  created_at timestamp [default: `now()`]
+}
+
+Table user_kiosks {
+  id serial [primary key]
+  sui_address varchar(200) [unique, not null]
+  kiosk_id varchar(200) [unique, not null]
+  kiosk_owner_cap_id varchar(200) [not null]
+  created_at timestamp [default: `now()`]
+}
+
+Table api_keys {
+  id serial [primary key]
+  game_id integer [not null]
+  key_hash varchar(255) [unique, not null]
+  key_prefix varchar(20) [not null]
+  is_active boolean [default: true]
+  last_used_at timestamp
+  created_at timestamp [default: `now()`]
+}
+
+Table item_templates {
+  id serial [primary key]
+  game_id integer [not null]
+  sui_item_id varchar(200)
+  name varchar(255) [not null]
+  item_type varchar(100) [not null]
+  rarity varchar(100) [not null]
+  description text
+  image_blob_id varchar(200)
+  metadata_blob_id varchar(200)
+  supply integer [default: 1]
+  is_nft boolean [default: true]
+  attributes jsonb
+  status varchar(20) [default: 'draft']
+  created_at timestamp [default: `now()`]
+}
+
+Table claim_codes {
+  id serial [primary key]
+  code varchar(50) [unique, not null]
+  game_id integer [not null]
+  item_template_id integer [not null]
+  recipient_identifier varchar(255)
+  expires_at timestamp [not null]
+  claimed_at timestamp
+  claimed_by varchar(200)
+  created_at timestamp [default: `now()`]
+}
+
+Table escrow_index {
+  id serial [primary key]
+  escrow_id varchar(200) [unique, not null]
+  initiator_address varchar(200) [not null]
+  offer_game_id integer
+  offer_item_blob_id varchar(200)
+  conditions_json jsonb [not null]
+  is_active boolean [default: true]
+  created_at timestamp [default: `now()`]
+  fulfilled_at timestamp
+  cancelled_at timestamp
+}
+
+Table item_cache {
+  id serial [primary key]
+  blob_id varchar(200) [unique, not null]
+  game_id integer [not null]
+  name varchar(255) [not null]
+  description text
+  image_blob_id varchar(200) [not null]
+  tags jsonb
+  attributes jsonb
+  created_at timestamp [default: `now()`]
+}
+
+Table tx_events {
+  id serial [primary key]
+  tx_hash varchar(200) [not null]
+  event_type varchar(100) [not null]
+  game_id integer
+  from_address varchar(200)
+  to_address varchar(200)
+  item_blob_id varchar(200)
+  metadata jsonb
+  created_at timestamp [default: `now()`]
+}
+
+Ref: publishers.dev_id > gamedevs.id
+Ref: games.publisher_id > publishers.id
+Ref: item_templates.game_id > games.id
+Ref: claim_codes.game_id > games.id
+Ref: claim_codes.item_template_id > item_templates.id
+Ref: api_keys.game_id > games.id
+Ref: escrow_index.offer_game_id > games.id
+Ref: item_cache.game_id > games.id
+Ref: tx_events.game_id > games.id
