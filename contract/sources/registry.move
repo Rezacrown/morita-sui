@@ -11,9 +11,14 @@ module morita::registry;
 use std::string::{Self, String};
 use sui::event;
 use sui::object::{Self, ID, UID};
+use sui::package;
 use sui::table::{Self, Table};
 use sui::transfer;
 use sui::tx_context::TxContext;
+
+// ── OTW (One-Time Witness) ──
+// Digunakan oleh package::claim() untuk mendapatkan Publisher object.
+public struct REGISTRY has drop {}
 
 // ── Struct: AdminCap ──
 // Representasi: "Kunci admin" — hanya dimiliki oleh pemilik kontrak.
@@ -154,10 +159,13 @@ public fun game_id(game: &Game): ID {
 }
 
 // ── Init ──
-// Dipanggil otomatis saat publish. Membuat AdminCap untuk deployer.
-fun init(ctx: &mut TxContext) {
+// Dipanggil otomatis saat publish.
+// OTW (One-Time Witness) REGISTRY dipakai dapetin Publisher object.
+fun init(otw: REGISTRY, ctx: &mut TxContext) {
     let admin = AdminCap { id: object::new(ctx) };
     transfer::public_transfer(admin, ctx.sender());
+    let publisher = package::claim(otw, ctx);
+    transfer::public_transfer(publisher, ctx.sender());
 }
 
 // ── Functions ──

@@ -333,6 +333,78 @@ sui keytool export --key-identity <ALIAS>
 
 ---
 
+## 10. Current Deployment (Testnet)
+
+| Item | ID |
+|------|-----|
+| **Package ID** | `0xec6be0f9b9a8f5e190ed6abfc24f341d90f779d0aba2fe1fe457369d15d4817b` |
+| **AdminCap** | `0xcaab9159d5a0aece2123054fbb1255658255105b9120c54175249f8aaab45139` |
+| **Publisher** | `0x339ef5be9f21c2b3f41b7630589415e627bd695c74ebd64aff4970d1fccda7d7` |
+| **TransferPolicy\<GameItem\>** | `0xb186bff1db96eac3ac34e167ba29d27de5cadb03161c76e528191dc62cd421fb` |
+| **TransferPolicyCap** | `0x061aa134bd02114ea3b093e3e86b0c6ed6fb4ab667c97f855b6238633bce602b` |
+| **UpgradeCap** | `0x282e437cee756bec89d4c9c931953866a41cb438c6d13e548d789c68f2239c8c` |
+| **Admin Address (PLATFORM_ADDR)** | `0x8aabd8a2fe756e6a13744382d193541ea4be72e022d61b130bea7c7df017bb47` |
+
+### Enoki Config
+| Key | Value |
+|-----|-------|
+| Public Key | `enoki_public_fcfd5b8ec0f4a7dbfa641c7c514e3134` |
+| Secret Key | `enoki_private_cf3aa053defd134279e6c356d363d03f` |
+| Google Client ID | `833312387115-7u45vtkrt1d77iqrp2uvd6042i3fat7j.apps.googleusercontent.com` |
+
+### Enoki Portal Whitelist (16 Move Call Targets)
+All targets use Package ID: `0xec6be0f9b9a8f5e190ed6abfc24f341d90f779d0aba2fe1fe457369d15d4817b`
+
+```
+registry::create_publisher
+registry::initiate_publish
+registry::finalize_publish
+registry::update_game
+registry::verify_publisher
+registry::pause_game
+registry::resume_game
+item::mint
+item::burn
+kiosk_ext::list_for_sale
+kiosk_ext::buy_item
+escrow::lock_item_for_any
+escrow::lock_item_for_target
+escrow::fulfill_escrow
+escrow::fulfill_escrow_with_value
+escrow::cancel_escrow
+```
+
+**Allowed Address:** `0x8aabd8a2fe756e6a13744382d193541ea4be72e022d61b130bea7c7df017bb47`
+
+### Walrus
+| Endpoint | URL |
+|----------|-----|
+| Aggregator (read) | `https://aggregator.walrus-testnet.walrus.space` |
+| Relay (upload) | `https://relay.walrus-testnet.walrus.space` |
+
+### Database
+**Connection:** `postgresql://morita:morita_pwd@localhost:5432/morita`
+**Tables (10):** gamedevs, publishers, games, user_kiosks, api_keys, item_templates, claim_codes, escrow_index, item_cache, tx_events
+
+---
+
+## 11. Pending Tasks (MVP Gaps)
+
+| # | Priority | Task | File | Notes |
+|---|----------|------|------|-------|
+| 1 | 🔴 | **Wire Claim Flow A** — `redeemClaimCode` → real PTB `item::mint` via Enoki sponsored tx | `actions/claim.ts` + `lib/sui/enoki-client.ts` | Currently returns `txDigest: ''` |
+| 2 | 🔴 | **Wire Flow B Signing** — frontend build PTB → backend sponsor → EnokiFlow keypair sign → execute | `components/landing/login-modal.tsx` + `actions/publisher.ts` | Need `useEnokiFlow().getKeypair()` for signing |
+| 3 | 🟡 | **Hono Inventory Endpoint** — query on-chain items via `suiClient.getOwnedObjects()` | `app/api/[[...route]]/route.ts` | Currently returns `items: []` |
+| 4 | 🟡 | **Hono Item Detail Endpoint** — query on-chain item object | `app/api/[[...route]]/route.ts` | Currently returns `item: null` |
+| 5 | 🟡 | **Hono Burn Endpoint** — real Flow A `item::burn` | `app/api/[[...route]]/route.ts` | Currently empty success |
+| 6 | 🟡 | **Event Indexer** — gRPC streaming for event indexing | `lib/sui/event-indexer.ts` | Currently a stub |
+| 7 | 🟢 | **Dashboard → Create Publisher** — wire Flow B signing | Frontend + `actions/publisher.ts` | Depends on #2 |
+| 8 | 🟢 | **Dashboard → Publish Game** — Walrus upload + PTB | `actions/game.ts` | Depends on #1, #2 |
+| 9 | 🟢 | **Marketplace listings** — query Kiosk on-chain for sale items | `actions/marketplace.ts` | Currently escrow-index only |
+| 10 | 🟢 | **Demo Day Prep** — test 5-min flow end-to-end | — | After #1-3 done |
+
+---
+
 ## Key Design Decisions
 
 | # | Decision | Rationale |
@@ -349,3 +421,4 @@ sui keytool export --key-identity <ALIAS>
 ---
 
 *Last updated: June 19, 2026*
+

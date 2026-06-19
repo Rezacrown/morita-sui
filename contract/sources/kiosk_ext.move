@@ -131,8 +131,8 @@ public fun buy_item(
     item
 }
 
-public fun create_transfer_policy(pub: &Publisher, ctx: &mut TxContext) {
-    let (tp, cap) = tp::new<GameItem>(pub, ctx);
+public fun create_transfer_policy(publisher: &Publisher, ctx: &mut TxContext) {
+    let (tp, cap) = tp::new<GameItem>(publisher, ctx);
     transfer::public_share_object(tp);
     transfer::public_transfer(cap, ctx.sender())
 }
