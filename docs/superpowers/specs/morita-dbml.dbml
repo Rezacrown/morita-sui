@@ -1,6 +1,6 @@
 Table gamedevs {
   id serial PK
-  sui_address varchar(200) UK
+  sui_address varchar(200) 
   email varchar(255)
   name varchar(255)
   created_at timestamp [default: `now()`]

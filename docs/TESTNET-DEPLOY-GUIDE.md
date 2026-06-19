@@ -79,30 +79,30 @@ Transaction Digest: ...
 
 ## Step 5 — Deploy TransferPolicy for GameItem
 
-Setelah publish, TransferPolicy harus di-deploy agar `kiosk_ext::buy_item` bisa jalan:
+`kiosk_ext::buy_item` butuh `TransferPolicy<GameItem>` untuk konfirmasi transfer. Deploy via CLI PTB menggunakan `sui::transfer_policy::new`:
 
-### Create script
 ```bash
-mkdir -p contract/scripts
-```
-
-Buat file `contract/scripts/deploy_tp.move` (atau langsung via PTB di TypeScript):
-
-### Atau deploy via Sui CLI PTB:
-```bash
-# Ganti <PACKAGE_ID> dan <ADMIN_ADDR> sesuai hasil publish
+# Ganti <PACKAGE_ID> dengan hasil publish
+# Publisher object didapat dari output publish (otomatis terbit kalau package punya init)
 sui client ptb \
-  --assign tp @0x0 \
-  --move-call <PACKAGE_ID>::kiosk_ext::create_transfer_policy \
-  --assign admin_cap @<ADMIN_CAP_ID> \
+  --move-call <PACKAGE_ID>::kiosk_ext::get_tp <PACKAGE_ID> \
   --gas-budget 20000000
 ```
 
-> **Note:** Kalau `create_transfer_policy` belum ada di `kiosk_ext.move`, tambahkan fungsi berikut di `kiosk_ext.move`:
+Atau langsung panggil `sui::transfer_policy::new`:
+```bash
+sui client ptb \
+  --assign publisher @<PUBLISHER_OBJECT_ID> \
+  --move-call sui::transfer_policy::new<GameItem> publisher \
+  --gas-budget 20000000
+```
+
+Tapi cara paling gampang: **tambah fungsi helper di kiosk_ext.move** yang nerima `Publisher`:
 
 ```move
-public fun create_transfer_policy(ctx: &mut TxContext): TransferPolicy<GameItem> {
-    transfer_policy::new<GameItem>(ctx)
+public fun create_transfer_policy(pub: &Publisher, ctx: &mut TxContext): TransferPolicy<GameItem> {
+    let (tp, _cap) = tp::new<GameItem>(pub, ctx);
+    tp::share(tp)
 }
 ```
 

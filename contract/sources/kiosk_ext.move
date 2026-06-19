@@ -14,6 +14,8 @@ use sui::kiosk::{Self, Kiosk, KioskOwnerCap};
 use sui::coin::Coin;
 use sui::sui::SUI;
 use sui::object::{Self, ID};
+use sui::package::Publisher;
+use sui::transfer;
 use sui::transfer_policy::{Self as tp, TransferPolicy};
 use sui::tx_context::TxContext;
 
@@ -126,5 +128,11 @@ public fun buy_item(
     tp::confirm_request(transfer_policy, transfer_req);
     // Kirim event item terjual
     event::emit(ItemSold { item_id, seller: kiosk.owner(), buyer: ctx.sender(), price });
-    item  // Kembalikan GameItem ke pembeli
+    item
+}
+
+public fun create_transfer_policy(pub: &Publisher, ctx: &mut TxContext) {
+    let (tp, cap) = tp::new<GameItem>(pub, ctx);
+    transfer::public_share_object(tp);
+    transfer::public_transfer(cap, ctx.sender())
 }
