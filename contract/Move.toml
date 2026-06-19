@@ -1,0 +1,7 @@
+[package]
+name = "morita"
+edition = "2024"
+
+[environments]
+devnet = "devnet"
+local = "local"

@@ -1,0 +1,10 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-bg: #FCFBF2;
+  --color-blueberry: #5A60D3;
+  --color-blueberry-dark: #2E3166;
+  --color-blueberry-light: #D2D7FC;
+  --color-blueberry-cream: #F1F3FF;
+  --color-border-dark: #1E2044;
+}

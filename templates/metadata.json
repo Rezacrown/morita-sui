@@ -1,0 +1,8 @@
+{
+  "name": "Morita",
+  "description": "Cross-game inventory & commerce protocol — own your items, trade anywhere",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
