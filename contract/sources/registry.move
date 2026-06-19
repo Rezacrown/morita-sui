@@ -8,7 +8,7 @@ module morita::registry;
 // serta status active/paused dari setiap game.
 // ============================================================
 
-use std::string::String;
+use std::string::{Self, String};
 use sui::event;
 use sui::object::{Self, ID, UID};
 use sui::table::{Self, Table};
@@ -151,6 +151,13 @@ public fun remove_minted_item(game: &mut Game, item_id: u64) {
 // Fungsi ini dibutuhkan module item untuk mendapatkan game_id dari referensi Game.
 public fun game_id(game: &Game): ID {
     object::id(game)  // Panggil object::id() untuk mengambil ID dari objek
+}
+
+// ── Init ──
+// Dipanggil otomatis saat publish. Membuat AdminCap untuk deployer.
+fun init(ctx: &mut TxContext) {
+    let admin = AdminCap { id: object::new(ctx) };
+    transfer::public_transfer(admin, ctx.sender());
 }
 
 // ── Functions ──

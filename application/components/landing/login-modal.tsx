@@ -3,9 +3,9 @@
 import React, { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { X, ShieldCheck, LogIn, User, Check } from 'lucide-react'
-import { useWallets, useDAppKit, useCurrentAccount } from '@mysten/dapp-kit-react'
-import { isEnokiWallet } from '@mysten/enoki'
+import { useEnokiFlow } from '@mysten/enoki/react'
 import { useAuthStore } from '@/stores/auth-store'
+import { useZkLogin } from '@mysten/enoki/react'
 
 interface LoginModalProps {
   isOpen: boolean
@@ -15,37 +15,43 @@ interface LoginModalProps {
 
 export default function LoginModal({ isOpen, onClose, redirectTo }: LoginModalProps) {
   const router = useRouter()
-  const wallets = useWallets()
-  const dAppKit = useDAppKit()
-  const account = useCurrentAccount()
+  const flow = useEnokiFlow()
+  const zkLoginState = useZkLogin() as Record<string, unknown>
   const setWorkspace = useAuthStore((s) => s.setWorkspace)
 
   const [step, setStep] = useState<'oauth' | 'connecting' | 'workspace'>('oauth')
   const [isLoading, setIsLoading] = useState(false)
   const [workspaceName, setWorkspaceName] = useState('')
-
-  const googleWallet = wallets.find((w) => isEnokiWallet(w) && (w as any).provider === 'google')
+  const [error, setError] = useState('')
 
   const handleGoogleOAuth = useCallback(async () => {
-    if (!googleWallet) return
     setIsLoading(true)
     setStep('connecting')
+    setError('')
+
     try {
-      await dAppKit.connectWallet({ wallet: googleWallet })
+      const oauthUrl = await flow.createAuthorizationURL({
+        provider: 'google',
+        clientId: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
+        redirectUrl: typeof window !== 'undefined'
+          ? window.location.origin + '/auth/callback'
+          : '',
+        network: (process.env.NEXT_PUBLIC_SUI_NETWORK || 'testnet') as 'testnet' | 'mainnet' | 'devnet',
+      }) as unknown as string
+      window.location.href = oauthUrl
     } catch (err) {
-      console.error('Enoki connect failed:', err)
+      setError('Failed to start login. Check Enoki config.')
       setIsLoading(false)
       setStep('oauth')
-      return
     }
-  }, [googleWallet, dAppKit])
+  }, [flow])
 
   React.useEffect(() => {
-    if (step === 'connecting' && account?.address) {
+    if (step === 'connecting' && zkLoginState?.address) {
       setIsLoading(false)
       setStep('workspace')
     }
-  }, [account, step])
+  }, [zkLoginState, step])
 
   const handleFinish = (e: React.FormEvent) => {
     e.preventDefault()
@@ -79,20 +85,22 @@ export default function LoginModal({ isOpen, onClose, redirectTo }: LoginModalPr
             <div className="bg-blueberry-light/10 border-2 border-blueberry-light text-xs font-mono p-3 rounded-xl mb-6 text-border-dark/80 leading-relaxed">
               Zero gas, zero passphrases. Sign in with your Google account to generate a Sui wallet instantly.
             </div>
+            {error && (
+              <div className="bg-red-50 border-2 border-red-200 text-xs font-mono p-3 rounded-xl mb-4 text-red-600">
+                {error}
+              </div>
+            )}
             <button
               onClick={handleGoogleOAuth}
-              disabled={isLoading || !googleWallet}
+              disabled={isLoading}
               className="w-full flex items-center justify-center gap-3 py-3.5 bg-white border-2 border-border-dark rounded-xl font-display font-black text-sm uppercase tracking-tight hover:bg-blueberry-cream transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
-                <><div className="w-4 h-4 border-2 border-blueberry border-t-transparent rounded-full animate-spin" /><span>Connecting...</span></>
+                <><div className="w-4 h-4 border-2 border-blueberry border-t-transparent rounded-full animate-spin" /><span>Redirecting...</span></>
               ) : (
                 <><LogIn className="w-5 h-5 text-blueberry" /><span>Continue with Google</span></>
               )}
             </button>
-            {!googleWallet && (
-              <p className="text-[10px] font-mono text-red-500 mt-2 text-center">Enoki not configured. Check API key.</p>
-            )}
           </>
         )}
 
@@ -108,7 +116,7 @@ export default function LoginModal({ isOpen, onClose, redirectTo }: LoginModalPr
           <form onSubmit={handleFinish} className="space-y-4">
             <div className="flex items-center gap-2 bg-blueberry-cream border-2 border-blueberry-light text-xs font-mono p-3 rounded-xl text-border-dark">
               <Check className="w-4 h-4 text-green-600 shrink-0" />
-              <span>Connected as <strong className="font-bold">{account?.address.slice(0, 10)}...</strong></span>
+              <span>Connected as <strong className="font-bold">{(zkLoginState?.address as string)?.slice(0, 10)}...</strong></span>
             </div>
             <div>
               <label className="block text-xs font-mono font-bold text-border-dark/70 uppercase mb-1.5">Workspace Name</label>

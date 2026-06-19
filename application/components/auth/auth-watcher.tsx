@@ -1,23 +1,24 @@
 'use client'
 
-import { useCurrentAccount } from '@mysten/dapp-kit-react'
+import { useZkLogin } from '@mysten/enoki/react'
 import { useAuthStore } from '@/stores/auth-store'
 import { useEffect } from 'react'
 
 export function AuthWatcher() {
-  const account = useCurrentAccount()
+  const zkLoginState = useZkLogin() as Record<string, unknown>
   const setAccount = useAuthStore((s) => s.setAccount)
 
   useEffect(() => {
-    if (account) {
+    const address = zkLoginState?.address as string | undefined
+    if (address) {
       setAccount({
-        suiAddress: account.address,
-        displayName: account.label || account.address.slice(0, 8),
+        suiAddress: address,
+        displayName: `${address.slice(0, 6)}...${address.slice(-4)}`,
       })
     } else {
       setAccount(null)
     }
-  }, [account, setAccount])
+  }, [zkLoginState, setAccount])
 
   return null
 }

@@ -3,5 +3,6 @@ name = "morita"
 edition = "2024"
 
 [environments]
+# testnet = "testnet"
 devnet = "devnet"
 local = "local"
