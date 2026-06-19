@@ -1,5 +1,10 @@
 import { create } from "zustand";
 
+interface AccountInfo {
+  suiAddress: string;
+  displayName: string;
+}
+
 interface AuthState {
   isLoggedIn: boolean;
   hasSetWorkspace: boolean;
@@ -9,6 +14,7 @@ interface AuthState {
   login: (name: string) => void;
   logout: () => void;
   setWorkspace: (name: string) => void;
+  setAccount: (info: AccountInfo | null) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -20,8 +26,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   login: (name) =>
     set({
       isLoggedIn: true,
-      suiAddress: "0xabc123...def",
-      displayName: name || "CryptoGamer99",
+      displayName: name || "Gamer",
     }),
   logout: () =>
     set({
@@ -32,4 +37,10 @@ export const useAuthStore = create<AuthState>((set) => ({
       workspaceName: "My Workspace",
     }),
   setWorkspace: (name) => set({ workspaceName: name, hasSetWorkspace: true }),
+  setAccount: (info) =>
+    set({
+      isLoggedIn: !!info,
+      suiAddress: info?.suiAddress ?? null,
+      displayName: info?.displayName ?? null,
+    }),
 }));

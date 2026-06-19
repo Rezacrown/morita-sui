@@ -1,46 +1,60 @@
-'use client';
+'use client'
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { X, ShieldCheck, LogIn, User } from 'lucide-react';
-import { useAuthStore } from '@/stores/auth-store';
+import React, { useState, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
+import { X, ShieldCheck, LogIn, User, Check } from 'lucide-react'
+import { useWallets, useDAppKit, useCurrentAccount } from '@mysten/dapp-kit-react'
+import { isEnokiWallet } from '@mysten/enoki'
+import { useAuthStore } from '@/stores/auth-store'
 
 interface LoginModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  redirectTo?: string;
+  isOpen: boolean
+  onClose: () => void
+  redirectTo?: string
 }
 
 export default function LoginModal({ isOpen, onClose, redirectTo }: LoginModalProps) {
-  const router = useRouter();
-  const login = useAuthStore((s) => s.login);
+  const router = useRouter()
+  const wallets = useWallets()
+  const dAppKit = useDAppKit()
+  const account = useCurrentAccount()
+  const setWorkspace = useAuthStore((s) => s.setWorkspace)
 
-  const [step, setStep] = useState<'oauth' | 'username' | 'finishing'>('oauth');
-  const [isLoading, setIsLoading] = useState(false);
-  const [username, setUsername] = useState('');
+  const [step, setStep] = useState<'oauth' | 'connecting' | 'workspace'>('oauth')
+  const [isLoading, setIsLoading] = useState(false)
+  const [workspaceName, setWorkspaceName] = useState('')
 
-  if (!isOpen) return null;
+  const googleWallet = wallets.find((w) => isEnokiWallet(w) && (w as any).provider === 'google')
 
-  const handleGoogleOAuth = () => {
-    setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      setStep('username');
-    }, 1200);
-  };
+  const handleGoogleOAuth = useCallback(async () => {
+    if (!googleWallet) return
+    setIsLoading(true)
+    setStep('connecting')
+    try {
+      await dAppKit.connectWallet({ wallet: googleWallet })
+    } catch (err) {
+      console.error('Enoki connect failed:', err)
+      setIsLoading(false)
+      setStep('oauth')
+      return
+    }
+  }, [googleWallet, dAppKit])
 
-  const handleSetUsername = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!username.trim()) return;
-    setIsLoading(true);
-    setStep('finishing');
-    setTimeout(() => {
-      setIsLoading(false);
-      login(username.trim());
-      onClose();
-      router.push(redirectTo || '/inventory');
-    }, 800);
-  };
+  React.useEffect(() => {
+    if (step === 'connecting' && account?.address) {
+      setIsLoading(false)
+      setStep('workspace')
+    }
+  }, [account, step])
+
+  const handleFinish = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (workspaceName.trim()) setWorkspace(workspaceName.trim())
+    onClose()
+    router.push(redirectTo || '/inventory')
+  }
+
+  if (!isOpen) return null
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -67,46 +81,50 @@ export default function LoginModal({ isOpen, onClose, redirectTo }: LoginModalPr
             </div>
             <button
               onClick={handleGoogleOAuth}
-              disabled={isLoading}
+              disabled={isLoading || !googleWallet}
               className="w-full flex items-center justify-center gap-3 py-3.5 bg-white border-2 border-border-dark rounded-xl font-display font-black text-sm uppercase tracking-tight hover:bg-blueberry-cream transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
-                <><div className="w-4 h-4 border-2 border-blueberry border-t-transparent rounded-full animate-spin" /><span>Redirecting...</span></>
+                <><div className="w-4 h-4 border-2 border-blueberry border-t-transparent rounded-full animate-spin" /><span>Connecting...</span></>
               ) : (
                 <><LogIn className="w-5 h-5 text-blueberry" /><span>Continue with Google</span></>
               )}
             </button>
+            {!googleWallet && (
+              <p className="text-[10px] font-mono text-red-500 mt-2 text-center">Enoki not configured. Check API key.</p>
+            )}
           </>
         )}
 
-        {step === 'username' && (
-          <form onSubmit={handleSetUsername} className="space-y-4">
-            <div className="bg-blueberry-light/10 border-2 border-blueberry-light text-xs font-mono p-3 rounded-xl text-border-dark/80 leading-relaxed">
-              Welcome! Pick a username to identify yourself across Morita.
-            </div>
-            <div>
-              <label className="block text-xs font-mono font-bold text-border-dark/70 uppercase mb-1.5">Username</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-border-dark/40"><User className="w-4 h-4" /></div>
-                <input type="text" placeholder="e.g. cyber_samurai" value={username} onChange={(e) => setUsername(e.target.value)} className="w-full pl-10 pr-3.5 py-3 bg-white border-2 border-border-dark rounded-xl text-sm font-mono text-border-dark placeholder-border-dark/40 focus:outline-none focus:ring-2 focus:ring-blueberry" />
-              </div>
-            </div>
-            <button type="submit" disabled={isLoading} className="w-full py-3.5 bg-blueberry text-white border-2 border-border-dark text-sm font-display font-extrabold rounded-xl shadow-[4px_4px_0px_0px_var(--color-blueberry-light)] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none hover:bg-blueberry-dark transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
-              {isLoading ? <><div className="w-4 h-4 border-2 border-blueberry-light border-t-transparent rounded-full animate-spin" /><span>Setting up wallet...</span></> : <span>Continue</span>}
-            </button>
-          </form>
-        )}
-
-        {step === 'finishing' && (
+        {step === 'connecting' && (
           <div className="py-10 text-center">
             <div className="w-12 h-12 border-4 border-blueberry border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <p className="font-display font-black text-sm uppercase text-border-dark">Generating Sui Wallet</p>
-            <p className="text-[10px] font-mono text-border-dark/50 mt-1">Via Enoki zkLogin...</p>
+            <p className="font-display font-black text-sm uppercase text-border-dark">Signing in with Google</p>
+            <p className="text-[10px] font-mono text-border-dark/50 mt-1">via Enoki zkLogin...</p>
           </div>
+        )}
+
+        {step === 'workspace' && (
+          <form onSubmit={handleFinish} className="space-y-4">
+            <div className="flex items-center gap-2 bg-blueberry-cream border-2 border-blueberry-light text-xs font-mono p-3 rounded-xl text-border-dark">
+              <Check className="w-4 h-4 text-green-600 shrink-0" />
+              <span>Connected as <strong className="font-bold">{account?.address.slice(0, 10)}...</strong></span>
+            </div>
+            <div>
+              <label className="block text-xs font-mono font-bold text-border-dark/70 uppercase mb-1.5">Workspace Name</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-border-dark/40"><User className="w-4 h-4" /></div>
+                <input type="text" placeholder="e.g. My Game Studio" value={workspaceName} onChange={(e) => setWorkspaceName(e.target.value)} className="w-full pl-10 pr-3.5 py-3 bg-white border-2 border-border-dark rounded-xl text-sm font-mono text-border-dark placeholder-border-dark/40 focus:outline-none focus:ring-2 focus:ring-blueberry" />
+              </div>
+            </div>
+            <button type="submit" className="w-full py-3.5 bg-blueberry text-white border-2 border-border-dark text-sm font-display font-extrabold rounded-xl shadow-[4px_4px_0px_0px_var(--color-blueberry-light)] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none hover:bg-blueberry-dark transition-all cursor-pointer">
+              Enter Dashboard
+            </button>
+          </form>
         )}
 
         <div className="mt-4 text-center text-[10px] font-mono text-border-dark/50">Powered by Sui Network. No extension required.</div>
       </div>
     </div>
-  );
+  )
 }
