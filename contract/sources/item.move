@@ -42,9 +42,10 @@ const EITEM_GAME_MISMATCH: vector<u8> = b"Item does not belong to this Game";
 
 // ── Public accessors ──
 
-public fun item_game_id(item: &GameItem): ID {
-    item.game_id
-}
+public fun item_game_id(item: &GameItem): ID { item.game_id }
+public fun item_item_id(item: &GameItem): u64 { item.item_id }
+public fun item_item_type(item: &GameItem): String { item.item_type }
+public fun item_rarity(item: &GameItem): String { item.rarity }
 
 // ── Functions ──
 

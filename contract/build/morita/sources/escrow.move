@@ -9,7 +9,7 @@ use sui::tx_context::TxContext;
 use sui::coin::Coin;
 use sui::sui::SUI;
 
-use morita::item::GameItem;
+use morita::item::{GameItem, item_game_id, item_item_id, item_item_type, item_rarity};
 
 public struct EscrowConditions has store, drop {
     item_id_target: Option<u64>,
@@ -54,10 +54,34 @@ const EUNAUTHORIZED: vector<u8> = b"Not authorized";
 const EESCROW_INACTIVE: vector<u8> = b"Escrow already fulfilled or cancelled";
 
 #[error]
+const ECONDITION_MISMATCH: vector<u8> = b"Item does not match escrow conditions";
+
+#[error]
 const ESELF_FULFILL: vector<u8> = b"Cannot fulfill your own escrow";
 
 #[error]
 const ENOT_COUNTERPARTY: vector<u8> = b"Escrow is targeted but caller is not the counterparty";
+
+// ── Helper: validate conditions ──
+
+fun check_conditions(item: &GameItem, conditions: &EscrowConditions) {
+    if (conditions.item_id_target.is_some()) {
+        let target_id = *conditions.item_id_target.borrow();
+        assert!(item_item_id(item) == target_id, ECONDITION_MISMATCH);
+    };
+    if (conditions.game_id_accept.is_some()) {
+        let game_id = *conditions.game_id_accept.borrow();
+        assert!(item_game_id(item) == game_id, ECONDITION_MISMATCH);
+    };
+    if (conditions.item_type_accept.is_some()) {
+        let type_accepted = conditions.item_type_accept.borrow();
+        assert!(&item_item_type(item) == type_accepted, ECONDITION_MISMATCH);
+    };
+    if (conditions.rarity_accept.is_some()) {
+        let rarity_accepted = conditions.rarity_accept.borrow();
+        assert!(&item_rarity(item) == rarity_accepted, ECONDITION_MISMATCH);
+    };
+}
 
 // ── Functions ──
 
@@ -65,7 +89,7 @@ public fun lock_item_for_any(
     item: GameItem,
     conditions: EscrowConditions,
     ctx: &mut TxContext,
-): Escrow {
+) {
     let offer_item_id = object::id(&item);
     let escrow = Escrow {
         id: object::new(ctx),
@@ -82,7 +106,7 @@ public fun lock_item_for_any(
         offer_item_id,
         counterparty: option::none(),
     });
-    escrow
+    transfer::share_object(escrow);
 }
 
 public fun lock_item_for_target(
@@ -90,7 +114,7 @@ public fun lock_item_for_target(
     conditions: EscrowConditions,
     counterparty: address,
     ctx: &mut TxContext,
-): Escrow {
+) {
     let offer_item_id = object::id(&item);
     let escrow = Escrow {
         id: object::new(ctx),
@@ -107,10 +131,6 @@ public fun lock_item_for_target(
         offer_item_id,
         counterparty: option::some(counterparty),
     });
-    escrow
-}
-
-public fun share_escrow(escrow: Escrow) {
     transfer::share_object(escrow);
 }
 
@@ -125,6 +145,7 @@ public fun fulfill_escrow(
         let counterparty = escrow.counterparty.borrow();
         assert!(ctx.sender() == *counterparty, ENOT_COUNTERPARTY);
     };
+    check_conditions(&my_item, &escrow.conditions);
 
     let offered = option::extract(&mut escrow.offer_item);
     option::fill(&mut escrow.offer_item, my_item);
@@ -139,20 +160,24 @@ public fun fulfill_escrow_with_value(
     my_item: GameItem,
     token_topup: Coin<SUI>,
     ctx: &mut TxContext,
-): (GameItem, Coin<SUI>) {
+): GameItem {
     assert!(escrow.is_active, EESCROW_INACTIVE);
     assert!(ctx.sender() != escrow.initiator, ESELF_FULFILL);
     if (escrow.counterparty.is_some()) {
         let counterparty = escrow.counterparty.borrow();
         assert!(ctx.sender() == *counterparty, ENOT_COUNTERPARTY);
     };
+    check_conditions(&my_item, &escrow.conditions);
 
     let offered = option::extract(&mut escrow.offer_item);
     option::fill(&mut escrow.offer_item, my_item);
     escrow.is_active = false;
 
+    // Send SUI top-up to the initiator as value gap compensation
+    transfer::public_transfer(token_topup, escrow.initiator);
+
     event::emit(EscrowFulfilled { escrow_id: object::id(escrow), fulfiller: ctx.sender() });
-    (offered, token_topup)
+    offered
 }
 
 public fun cancel_escrow(

@@ -5,7 +5,7 @@ use sui::kiosk::{Self, Kiosk, KioskOwnerCap};
 use sui::coin::Coin;
 use sui::sui::SUI;
 use sui::object::{Self, ID};
-use sui::transfer_policy::{Self, TransferPolicy};
+use sui::transfer_policy::{Self as tp, TransferPolicy};
 use sui::tx_context::TxContext;
 
 use morita::item::GameItem;
@@ -66,7 +66,7 @@ public fun buy_item(
 ): GameItem {
     let price = payment.value();
     let (item, transfer_req) = kiosk::purchase<GameItem>(kiosk, item_id, payment);
-    transfer_policy::confirm_request(transfer_policy, transfer_req);
+    tp::confirm_request(transfer_policy, transfer_req);
     event::emit(ItemSold { item_id, seller: kiosk.owner(), buyer: ctx.sender(), price });
     item
 }

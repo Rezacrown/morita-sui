@@ -145,18 +145,18 @@ public fun initiate_publish(publisher: &Publisher, name: String, ctx: &mut TxCon
     (game, ticket)
 }
 
-public fun finalize_publish(game: Game, ticket: PublishTicket, ctx: &mut TxContext): GameCapability {
+public fun finalize_publish(game: Game, ticket: PublishTicket, platform_addr: address, ctx: &mut TxContext) {
     assert!(object::id(&game) == ticket.game_id, ETICKET_MISMATCH);
-    let PublishTicket { game_id: _, publisher_id: _ } = ticket;
+    let PublishTicket { game_id: _, publisher_id } = ticket;
     let game_obj_id = object::id(&game);
     let cap = GameCapability { id: object::new(ctx), game_id: game_obj_id };
     transfer::share_object(game);
+    transfer::public_transfer(cap, platform_addr);
     event::emit(GameShared {
         game_id: game_obj_id,
-        publisher_id: game_obj_id,
-        platform_addr: ctx.sender(),
+        publisher_id,
+        platform_addr,
     });
-    cap
 }
 
 public fun update_game(game: &mut Game, new_name: String) {
