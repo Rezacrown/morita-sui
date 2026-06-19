@@ -9,7 +9,6 @@ import ConfirmModal from '@/components/shared/confirm-modal';
 export default function APIKeysPage() {
   const params = useParams();
   const router = useRouter();
-  const publisherId = typeof params.publisher_id === 'string' ? params.publisher_id : '';
   const gameId = typeof params.game_id === 'string' ? params.game_id : '0';
   const [keys, setKeys] = useState(MOCK_API_KEYS);
   const [newKey, setNewKey] = useState<string | null>(null);
@@ -32,7 +31,7 @@ export default function APIKeysPage() {
     <div>
       <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
         <div>
-          <button onClick={() => router.push(`/dashboard/${publisherId}/games/${gameId}`)} className="font-mono text-[10px] font-extrabold uppercase tracking-wider text-blueberry hover:text-blueberry-dark mb-1 cursor-pointer">&larr; Game Detail</button>
+          <button onClick={() => router.push(`/dashboard/games/${gameId}`)} className="font-mono text-[10px] font-extrabold uppercase tracking-wider text-blueberry hover:text-blueberry-dark mb-1 cursor-pointer">&larr; Game Detail</button>
           <h1 className="font-display font-black text-2xl sm:text-3xl uppercase tracking-tight text-[#1E2044]">API Keys</h1>
         </div>
         <button onClick={handleGenerate} className="px-5 py-2.5 bg-blueberry text-white border-3 border-[#1E2044] font-display font-black rounded-xl shadow-[3px_3px_0px_0px_var(--color-border-dark)] hover:-translate-y-0.5 transition-all uppercase text-xs cursor-pointer">Generate New Key</button>

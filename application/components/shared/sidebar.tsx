@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Swords, BarChart3, Activity, Settings, Box } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import StatusBadge from './status-badge';
 
 interface SidebarItem { label: string; href: string; icon: React.ReactNode; }
 
@@ -18,25 +17,21 @@ const DEFAULT_ITEMS: SidebarItem[] = [
 
 interface SidebarProps {
   publisherName: string;
-  isVerified: boolean;
   items?: SidebarItem[];
   className?: string;
 }
 
-export default function Sidebar({ publisherName, isVerified, items = DEFAULT_ITEMS, className }: SidebarProps) {
+export default function Sidebar({ publisherName, items = DEFAULT_ITEMS, className }: SidebarProps) {
   const pathname = usePathname();
 
   return (
     <aside className={cn('w-60 min-h-screen bg-white border-r-3 border-[#1E2044] flex flex-col', className)}>
       <div className="p-5 border-b-3 border-[#1E2044]">
         <h2 className="font-display font-black text-sm uppercase tracking-tight text-[#1E2044] truncate">{publisherName}</h2>
-        <div className="mt-2">
-          <StatusBadge status={isVerified ? 'verified' : 'draft'} />
-        </div>
       </div>
       <nav className="flex-1 p-3 space-y-1">
         {items.map((item) => {
-          const isActive = pathname.startsWith(item.href);
+          const isActive = item.href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(item.href);
           return (
             <Link key={item.href} href={item.href} className={cn('flex items-center gap-3 px-3 py-2.5 rounded-xl font-mono text-xs font-bold uppercase tracking-wider transition-all', isActive ? 'bg-blueberry text-white border-2 border-[#1E2044] shadow-[2px_2px_0px_0px_var(--color-border-dark)]' : 'text-[#1E2044]/60 hover:bg-blueberry-cream hover:text-[#1E2044]')}>
               {item.icon}

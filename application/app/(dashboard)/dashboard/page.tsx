@@ -3,54 +3,46 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth-store';
-import { MOCK_PUBLISHERS, MOCK_GAMES, MOCK_ITEMS, MOCK_PUBLISHER_ACTIVITIES } from '@/lib/mock-data';
+import { MOCK_GAMES, MOCK_PUBLISHER_ACTIVITIES } from '@/lib/mock-data';
 import MetricCard from '@/components/shared/metric-card';
-import EmptyState from '@/components/shared/empty-state';
 import StatusBadge from '@/components/shared/status-badge';
+import { ArrowRight } from 'lucide-react';
 
-export default function DashboardHomePage() {
+export default function DashboardOverviewPage() {
   const router = useRouter();
-  const { displayName, activePublisherId, setActivePublisher } = useAuthStore();
-
-  if (!activePublisherId) {
-    return <EmptyState title="No Publishers Yet" description="Create your first publisher to start managing games and items." />;
-  }
-
-  const activePub = MOCK_PUBLISHERS.find((p) => p.id === activePublisherId);
-  const pubGames = MOCK_GAMES.filter((g) => g.publisherId === activePublisherId);
-  const totalItems = MOCK_ITEMS.filter((i) => pubGames.some((g) => g.id === i.gameId)).length;
+  const { displayName, workspaceName } = useAuthStore();
+  const pubGames = MOCK_GAMES;
+  const totalItems = pubGames.reduce((acc, g) => acc + g.itemCount, 0);
   const publishedCount = pubGames.filter((g) => g.status === 'published').length;
   const recentActivity = MOCK_PUBLISHER_ACTIVITIES.slice(0, 5);
 
   return (
     <div>
       <div className="mb-8">
-        <h1 className="font-display font-black text-2xl sm:text-3xl uppercase tracking-tight text-[#1E2044]">Welcome back, {displayName ?? 'Dev'}</h1>
-        <p className="font-sans text-sm text-[#1E2044]/60 mt-1">Manage your publishers, games, and cross-game items</p>
+        <h1 className="font-display font-black text-2xl sm:text-3xl uppercase tracking-tight text-[#1E2044]">{workspaceName}</h1>
+        <div className="flex items-center gap-3 mt-1"><StatusBadge status="verified" /><span className="font-sans text-sm text-[#1E2044]/60">Welcome back, {displayName ?? 'Dev'}</span></div>
       </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <MetricCard label="Total Games" value={pubGames.length} />
         <MetricCard label="Published" value={`${publishedCount}/${pubGames.length}`} />
         <MetricCard label="Total Items" value={totalItems} />
-        <MetricCard label="Verification" value={activePub?.isVerified ? 'Verified' : 'Pending'} />
+        <MetricCard label="Status" value="Verified" />
       </div>
-      <div className="mb-8">
-        <h2 className="font-display font-black text-lg uppercase tracking-tight text-[#1E2044] mb-4">Your Publishers</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {MOCK_PUBLISHERS.map((pub) => (
-            <div key={pub.id} className="bg-white border-3 border-[#1E2044] rounded-2xl p-5 shadow-[4px_4px_0px_0px_var(--color-border-dark)] hover:-translate-y-1 hover:shadow-[6px_6px_0px_0px_var(--color-border-dark)] transition-all cursor-pointer" onClick={() => { setActivePublisher(pub.id); router.push(`/dashboard/${pub.id}/games`); }}>
-              <div className="flex items-start justify-between mb-3">
-                <h3 className="font-display font-black text-base uppercase tracking-tight text-[#1E2044]">{pub.name}</h3>
-                <StatusBadge status={pub.isVerified ? 'verified' : 'draft'} />
-              </div>
-              <div className="flex gap-4">
-                <div><span className="block text-[10px] font-mono font-extrabold uppercase tracking-wider text-[#1E2044]/60">Games</span><span className="block font-display font-bold text-lg text-[#1E2044]">{pub.gameCount}</span></div>
-                <div><span className="block text-[10px] font-mono font-extrabold uppercase tracking-wider text-[#1E2044]/60">Created</span><span className="block font-mono text-xs text-[#1E2044]/60">{new Date(pub.createdAt).toLocaleDateString()}</span></div>
-              </div>
-            </div>
-          ))}
-        </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+        <button onClick={() => router.push('/dashboard/games')} className="bg-white border-3 border-[#1E2044] rounded-2xl p-6 shadow-[4px_4px_0px_0px_var(--color-border-dark)] hover:-translate-y-1 hover:shadow-[6px_6px_0px_0px_var(--color-border-dark)] transition-all text-left cursor-pointer group">
+          <span className="text-[10px] font-mono font-extrabold uppercase tracking-wider text-blueberry flex items-center gap-2">Manage <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" /></span>
+          <h3 className="font-display font-black text-lg uppercase tracking-tight text-[#1E2044] mt-1">Games</h3>
+          <p className="font-sans text-xs text-[#1E2044]/60 mt-1">{pubGames.length} games, {totalItems} items</p>
+        </button>
+        <button onClick={() => router.push('/dashboard/analytics')} className="bg-white border-3 border-[#1E2044] rounded-2xl p-6 shadow-[4px_4px_0px_0px_var(--color-border-dark)] hover:-translate-y-1 hover:shadow-[6px_6px_0px_0px_var(--color-border-dark)] transition-all text-left cursor-pointer group">
+          <span className="text-[10px] font-mono font-extrabold uppercase tracking-wider text-blueberry flex items-center gap-2">View <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" /></span>
+          <h3 className="font-display font-black text-lg uppercase tracking-tight text-[#1E2044] mt-1">Analytics</h3>
+          <p className="font-sans text-xs text-[#1E2044]/60 mt-1">Cross-game metrics and activity</p>
+        </button>
       </div>
+
       <div>
         <h2 className="font-display font-black text-lg uppercase tracking-tight text-[#1E2044] mb-4">Recent Activity</h2>
         <div className="bg-white border-3 border-[#1E2044] rounded-2xl shadow-[4px_4px_0px_0px_var(--color-border-dark)] divide-y-2 divide-dashed divide-[#1E2044]/10">

@@ -10,7 +10,6 @@ import EmptyState from '@/components/shared/empty-state';
 export default function ItemsListPage() {
   const params = useParams();
   const router = useRouter();
-  const publisherId = typeof params.publisher_id === 'string' ? params.publisher_id : '';
   const gameId = typeof params.game_id === 'string' ? parseInt(params.game_id, 10) : 0;
   const [searchValue, setSearchValue] = useState('');
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
@@ -30,10 +29,10 @@ export default function ItemsListPage() {
     <div>
       <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
         <div>
-          <button onClick={() => router.push(`/dashboard/${publisherId}/games/${gameId}`)} className="font-mono text-[10px] font-extrabold uppercase tracking-wider text-blueberry hover:text-blueberry-dark mb-1 cursor-pointer">&larr; Game Detail</button>
+          <button onClick={() => router.push(`/dashboard/games/${gameId}`)} className="font-mono text-[10px] font-extrabold uppercase tracking-wider text-blueberry hover:text-blueberry-dark mb-1 cursor-pointer">&larr; Game Detail</button>
           <h1 className="font-display font-black text-2xl sm:text-3xl uppercase tracking-tight text-[#1E2044]">Items</h1>
         </div>
-        <button onClick={() => router.push(`/dashboard/${publisherId}/games/${gameId}/items/new`)} className="px-5 py-2.5 bg-blueberry text-white border-3 border-[#1E2044] font-display font-black rounded-xl shadow-[3px_3px_0px_0px_var(--color-border-dark)] hover:-translate-y-0.5 transition-all uppercase text-xs cursor-pointer">Create Item</button>
+        <button onClick={() => router.push(`/dashboard/games/${gameId}/items/new`)} className="px-5 py-2.5 bg-blueberry text-white border-3 border-[#1E2044] font-display font-black rounded-xl shadow-[3px_3px_0px_0px_var(--color-border-dark)] hover:-translate-y-0.5 transition-all uppercase text-xs cursor-pointer">Create Item</button>
       </div>
 
       <FilterBar
@@ -52,7 +51,7 @@ export default function ItemsListPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {filtered.map((item) => (
             <ItemCard key={item.id} item={{ name: item.name, gameName: item.gameName, itemType: item.itemType, rarity: item.rarity, imageUrl: item.imageUrl, status: item.status }}
-              onClick={() => router.push(`/dashboard/${publisherId}/games/${gameId}/items/${item.id}`)} />
+              onClick={() => router.push(`/dashboard/games/${gameId}/items/${item.id}`)} />
           ))}
         </div>
       )}

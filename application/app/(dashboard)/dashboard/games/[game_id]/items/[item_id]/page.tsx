@@ -12,7 +12,6 @@ import { Plus, X } from 'lucide-react';
 export default function ItemDetailOrEditPage() {
   const params = useParams();
   const router = useRouter();
-  const publisherId = typeof params.publisher_id === 'string' ? params.publisher_id : '';
   const gameId = typeof params.game_id === 'string' ? params.game_id : '0';
   const itemId = typeof params.item_id === 'string' ? params.item_id : '';
 
@@ -39,13 +38,13 @@ export default function ItemDetailOrEditPage() {
   };
 
   if (!existingItem && itemId !== 'new') {
-    return <EmptyState title="Item Not Found" description="This item does not exist or may have been removed." action={{ label: 'Back to Items', onClick: () => router.push(`/dashboard/${publisherId}/games/${gameId}/items`) }} />;
+    return <EmptyState title="Item Not Found" description="This item does not exist or may have been removed." action={{ label: 'Back to Items', onClick: () => router.push(`/dashboard/games/${gameId}/items`) }} />;
   }
 
   if (!isDraft && existingItem) {
     return (
       <div>
-        <button onClick={() => router.push(`/dashboard/${publisherId}/games/${gameId}/items`)} className="font-mono text-[10px] font-extrabold uppercase tracking-wider text-blueberry hover:text-blueberry-dark mb-6 cursor-pointer">&larr; Items</button>
+        <button onClick={() => router.push(`/dashboard/games/${gameId}/items`)} className="font-mono text-[10px] font-extrabold uppercase tracking-wider text-blueberry hover:text-blueberry-dark mb-6 cursor-pointer">&larr; Items</button>
         <StatusBadge status="published" className="mb-4" />
         <ItemDetail item={{ name: existingItem.name, gameName: existingItem.gameName, itemType: existingItem.itemType, rarity: existingItem.rarity, description: existingItem.description, imageUrl: existingItem.imageUrl, suiItemId: existingItem.suiItemId, supply: existingItem.supply, isNft: existingItem.isNft, attributes: existingItem.attributes as Record<string, string | undefined> }}>
           <div className="flex gap-3">
@@ -70,7 +69,7 @@ export default function ItemDetailOrEditPage() {
 
   return (
     <div>
-      <button onClick={() => router.push(`/dashboard/${publisherId}/games/${gameId}/items`)} className="font-mono text-[10px] font-extrabold uppercase tracking-wider text-blueberry hover:text-blueberry-dark mb-6 cursor-pointer">&larr; Items</button>
+      <button onClick={() => router.push(`/dashboard/games/${gameId}/items`)} className="font-mono text-[10px] font-extrabold uppercase tracking-wider text-blueberry hover:text-blueberry-dark mb-6 cursor-pointer">&larr; Items</button>
       <h1 className="font-display font-black text-xl uppercase tracking-tight text-[#1E2044] mb-6">{itemId === 'new' ? 'Create Item' : 'Edit Item'}</h1>
 
       <div className="bg-white border-3 border-[#1E2044] rounded-2xl p-6 shadow-[4px_4px_0px_0px_var(--color-border-dark)] max-w-2xl">
@@ -133,7 +132,7 @@ export default function ItemDetailOrEditPage() {
         </div>
       </div>
 
-      <ConfirmModal isOpen={showDeleteConfirm} title="Delete Item" message="Are you sure you want to delete this draft item? This cannot be undone." confirmLabel="Delete" variant="danger" onConfirm={() => { setShowDeleteConfirm(false); router.push(`/dashboard/${publisherId}/games/${gameId}/items`); }} onCancel={() => setShowDeleteConfirm(false)} />
+      <ConfirmModal isOpen={showDeleteConfirm} title="Delete Item" message="Are you sure you want to delete this draft item? This cannot be undone." confirmLabel="Delete" variant="danger" onConfirm={() => { setShowDeleteConfirm(false); router.push(`/dashboard/games/${gameId}/items`); }} onCancel={() => setShowDeleteConfirm(false)} />
     </div>
   );
 }

@@ -1,14 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useParams } from 'next/navigation';
 import { MOCK_PUBLISHERS } from '@/lib/mock-data';
 import StatusBadge from '@/components/shared/status-badge';
 
 export default function SettingsPage() {
-  const params = useParams();
-  const publisherId = typeof params.publisher_id === 'string' ? params.publisher_id : '';
-  const pub = MOCK_PUBLISHERS.find((p) => p.id === publisherId);
+  const pub = MOCK_PUBLISHERS[0];
 
   const [name, setName] = useState(pub?.name ?? '');
   const [logoUrl, setLogoUrl] = useState(pub?.logoUrl ?? '');

@@ -18,7 +18,6 @@ export default function GameDetailPage() {
   const router = useRouter();
   const { isPublishing, publishProgress, setPublishing, setProgress } = usePublisherStore();
 
-  const publisherId = typeof params.publisher_id === 'string' ? params.publisher_id : '';
   const gameId = parseInt(typeof params.game_id === 'string' ? params.game_id : '0', 10);
   const game = MOCK_GAMES.find((g) => g.id === gameId);
 
@@ -32,7 +31,7 @@ export default function GameDetailPage() {
   useEffect(() => { if (game) { setName(game.name); setDescription(game.description ?? ''); setGenre(game.genre ?? ''); setWebsiteUrl(game.websiteUrl ?? ''); } }, [game]);
 
   if (!game) {
-    return <EmptyState title="Game Not Found" description="This game does not exist or may have been removed." action={{ label: 'Back to Games', onClick: () => router.push(`/dashboard/${publisherId}/games`) }} />;
+    return <EmptyState title="Game Not Found" description="This game does not exist or may have been removed." action={{ label: 'Back to Games', onClick: () => router.push(`/dashboard/games`) }} />;
   }
 
   const isDraft = game.status === 'draft';
@@ -60,7 +59,7 @@ export default function GameDetailPage() {
     <div>
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-2 flex-wrap">
-          <button onClick={() => router.push(`/dashboard/${publisherId}/games`)} className="font-mono text-[10px] font-extrabold uppercase tracking-wider text-blueberry hover:text-blueberry-dark cursor-pointer">&larr; Games</button>
+          <button onClick={() => router.push(`/dashboard/games`)} className="font-mono text-[10px] font-extrabold uppercase tracking-wider text-blueberry hover:text-blueberry-dark cursor-pointer">&larr; Games</button>
           {isDraft && <div className="bg-yellow-100 border-2 border-yellow-400 rounded-xl px-4 py-2"><p className="text-[10px] font-mono font-extrabold uppercase tracking-wider text-yellow-800">This game is in draft mode. Review all items before publishing.</p></div>}
           {isPublished && <StatusBadge status="published" />}
         </div>
@@ -73,39 +72,39 @@ export default function GameDetailPage() {
         ))}
       </div>
 
-      {isDraft && (
-        <div className="mb-6 flex justify-end">
-          <button onClick={() => setShowPublishConfirm(true)} disabled={isPublishing} className="px-6 py-3 bg-green-500 text-white border-3 border-[#1E2044] font-display font-black rounded-xl shadow-[3px_3px_0px_0px_var(--color-border-dark)] hover:-translate-y-0.5 transition-all uppercase text-sm cursor-pointer disabled:opacity-50">{isPublishing ? 'Publishing...' : 'Publish Game'}</button>
-        </div>
-      )}
-
-      {isPublishing && (
-        <div className="mb-8 p-6 bg-white border-3 border-[#1E2044] rounded-2xl shadow-[4px_4px_0px_0px_var(--color-border-dark)]">
-          <h3 className="font-display font-black text-lg uppercase tracking-tight text-[#1E2044] mb-4">Publishing in Progress</h3>
-          <PublishProgressBar steps={publishProgress.map((p, i) => ({ label: p.step, status: p.done ? 'done' as const : i === publishProgress.findIndex((s) => !s.done) ? 'active' as const : 'pending' as const }))} />
-        </div>
-      )}
-
       {activeTab === 'overview' && (
-        <div className="bg-white border-3 border-[#1E2044] rounded-2xl p-6 shadow-[4px_4px_0px_0px_var(--color-border-dark)] max-w-2xl">
-          <h2 className="font-display font-black text-lg uppercase tracking-tight text-[#1E2044] mb-6">Game Details</h2>
-          <div className="space-y-5">
-            <div>
-              <label className="block text-[10px] font-mono font-extrabold uppercase tracking-wider text-[#1E2044]/60 mb-1.5">Name</label>
-              <input type="text" value={name} onChange={(e) => setName(e.target.value)} disabled={isPublished} className="w-full bg-blueberry-cream/10 text-sm font-sans text-[#1E2044] px-4 py-3 border-2 border-[#1E2044] rounded-xl focus:outline-none focus:ring-2 focus:ring-blueberry/25 disabled:opacity-50" />
+        <div>
+          {isDraft && (
+            <div className="mb-6 flex justify-end">
+              <button onClick={() => setShowPublishConfirm(true)} disabled={isPublishing} className="px-6 py-3 bg-green-500 text-white border-3 border-[#1E2044] font-display font-black rounded-xl shadow-[3px_3px_0px_0px_var(--color-border-dark)] hover:-translate-y-0.5 transition-all uppercase text-sm cursor-pointer disabled:opacity-50">{isPublishing ? 'Publishing...' : 'Publish Game'}</button>
             </div>
-            <div>
-              <label className="block text-[10px] font-mono font-extrabold uppercase tracking-wider text-[#1E2044]/60 mb-1.5">Description</label>
-              <textarea value={description} onChange={(e) => setDescription(e.target.value)} disabled={isPublished} rows={4} className="w-full bg-blueberry-cream/10 text-sm font-sans text-[#1E2044] px-4 py-3 border-2 border-[#1E2044] rounded-xl focus:outline-none focus:ring-2 focus:ring-blueberry/25 disabled:opacity-50 resize-none" />
+          )}
+          {isPublishing && (
+            <div className="mb-8 p-6 bg-white border-3 border-[#1E2044] rounded-2xl shadow-[4px_4px_0px_0px_var(--color-border-dark)]">
+              <h3 className="font-display font-black text-lg uppercase tracking-tight text-[#1E2044] mb-4">Publishing in Progress</h3>
+              <PublishProgressBar steps={publishProgress.map((p, i) => ({ label: p.step, status: p.done ? 'done' as const : i === publishProgress.findIndex((s) => !s.done) ? 'active' as const : 'pending' as const }))} />
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          )}
+          <div className="bg-white border-3 border-[#1E2044] rounded-2xl p-6 shadow-[4px_4px_0px_0px_var(--color-border-dark)] max-w-2xl">
+            <h2 className="font-display font-black text-lg uppercase tracking-tight text-[#1E2044] mb-6">Game Details</h2>
+            <div className="space-y-5">
               <div>
-                <label className="block text-[10px] font-mono font-extrabold uppercase tracking-wider text-[#1E2044]/60 mb-1.5">Genre</label>
-                <input type="text" value={genre} onChange={(e) => setGenre(e.target.value)} disabled={isPublished} className="w-full bg-blueberry-cream/10 text-sm font-sans text-[#1E2044] px-4 py-3 border-2 border-[#1E2044] rounded-xl focus:outline-none focus:ring-2 focus:ring-blueberry/25 disabled:opacity-50" />
+                <label className="block text-[10px] font-mono font-extrabold uppercase tracking-wider text-[#1E2044]/60 mb-1.5">Name</label>
+                <input type="text" value={name} onChange={(e) => setName(e.target.value)} disabled={isPublished} className="w-full bg-blueberry-cream/10 text-sm font-sans text-[#1E2044] px-4 py-3 border-2 border-[#1E2044] rounded-xl focus:outline-none focus:ring-2 focus:ring-blueberry/25 disabled:opacity-50" />
               </div>
               <div>
-                <label className="block text-[10px] font-mono font-extrabold uppercase tracking-wider text-[#1E2044]/60 mb-1.5">Website URL</label>
-                <input type="text" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} disabled={isPublished} className="w-full bg-blueberry-cream/10 text-sm font-sans text-[#1E2044] px-4 py-3 border-2 border-[#1E2044] rounded-xl focus:outline-none focus:ring-2 focus:ring-blueberry/25 disabled:opacity-50" />
+                <label className="block text-[10px] font-mono font-extrabold uppercase tracking-wider text-[#1E2044]/60 mb-1.5">Description</label>
+                <textarea value={description} onChange={(e) => setDescription(e.target.value)} disabled={isPublished} rows={4} className="w-full bg-blueberry-cream/10 text-sm font-sans text-[#1E2044] px-4 py-3 border-2 border-[#1E2044] rounded-xl focus:outline-none focus:ring-2 focus:ring-blueberry/25 disabled:opacity-50 resize-none" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-mono font-extrabold uppercase tracking-wider text-[#1E2044]/60 mb-1.5">Genre</label>
+                  <input type="text" value={genre} onChange={(e) => setGenre(e.target.value)} disabled={isPublished} className="w-full bg-blueberry-cream/10 text-sm font-sans text-[#1E2044] px-4 py-3 border-2 border-[#1E2044] rounded-xl focus:outline-none focus:ring-2 focus:ring-blueberry/25 disabled:opacity-50" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-mono font-extrabold uppercase tracking-wider text-[#1E2044]/60 mb-1.5">Website URL</label>
+                  <input type="text" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} disabled={isPublished} className="w-full bg-blueberry-cream/10 text-sm font-sans text-[#1E2044] px-4 py-3 border-2 border-[#1E2044] rounded-xl focus:outline-none focus:ring-2 focus:ring-blueberry/25 disabled:opacity-50" />
+                </div>
               </div>
             </div>
           </div>
@@ -116,11 +115,11 @@ export default function GameDetailPage() {
         <div>
           <div className="flex items-center justify-between mb-6">
             <h2 className="font-display font-black text-lg uppercase tracking-tight text-[#1E2044]">Items</h2>
-            <button onClick={() => router.push(`/dashboard/${publisherId}/games/${gameId}/items`)} className="px-5 py-2.5 bg-blueberry text-white border-3 border-[#1E2044] font-display font-black rounded-xl shadow-[3px_3px_0px_0px_var(--color-border-dark)] hover:-translate-y-0.5 transition-all uppercase text-xs cursor-pointer">Manage Items</button>
+            <button onClick={() => router.push(`/dashboard/games/${gameId}/items`)} className="px-5 py-2.5 bg-blueberry text-white border-3 border-[#1E2044] font-display font-black rounded-xl shadow-[3px_3px_0px_0px_var(--color-border-dark)] hover:-translate-y-0.5 transition-all uppercase text-xs cursor-pointer">Manage Items</button>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {gameItems.map((item) => (
-              <ItemCard key={item.id} item={{ name: item.name, gameName: item.gameName, itemType: item.itemType, rarity: item.rarity, imageUrl: item.imageUrl, status: item.status }} onClick={() => router.push(`/dashboard/${publisherId}/games/${gameId}/items/${item.id}`)} />
+              <ItemCard key={item.id} item={{ name: item.name, gameName: item.gameName, itemType: item.itemType, rarity: item.rarity, imageUrl: item.imageUrl, status: item.status }} onClick={() => router.push(`/dashboard/games/${gameId}/items/${item.id}`)} />
             ))}
           </div>
           {gameItems.length === 0 && <EmptyState title="No Items" description="Create your first item for this game." />}
@@ -152,7 +151,7 @@ export default function GameDetailPage() {
               </tbody>
             </table>
           </div>
-          <button onClick={() => router.push(`/dashboard/${publisherId}/games/${gameId}/api-keys`)} className="mt-4 px-5 py-2.5 bg-blueberry text-white border-3 border-[#1E2044] font-display font-black rounded-xl shadow-[3px_3px_0px_0px_var(--color-border-dark)] hover:-translate-y-0.5 transition-all uppercase text-xs cursor-pointer">Manage API Keys</button>
+          <button onClick={() => router.push(`/dashboard/games/${gameId}/api-keys`)} className="mt-4 px-5 py-2.5 bg-blueberry text-white border-3 border-[#1E2044] font-display font-black rounded-xl shadow-[3px_3px_0px_0px_var(--color-border-dark)] hover:-translate-y-0.5 transition-all uppercase text-xs cursor-pointer">Manage API Keys</button>
         </div>
       )}
 

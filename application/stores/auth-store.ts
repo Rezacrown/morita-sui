@@ -2,40 +2,34 @@ import { create } from "zustand";
 
 interface AuthState {
   isLoggedIn: boolean;
-  isDevMode: boolean;
+  hasSetWorkspace: boolean;
+  workspaceName: string;
   suiAddress: string | null;
   displayName: string | null;
-  activePublisherId: string | null;
   login: (name: string) => void;
   logout: () => void;
-  enterDevMode: () => void;
-  exitDevMode: () => void;
-  setActivePublisher: (id: string) => void;
+  setWorkspace: (name: string) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   isLoggedIn: false,
-  isDevMode: false,
+  hasSetWorkspace: false,
+  workspaceName: "My Workspace",
   suiAddress: null,
   displayName: null,
-  activePublisherId: null,
   login: (name) =>
     set({
       isLoggedIn: true,
-      isDevMode: false,
       suiAddress: "0xabc123...def",
       displayName: name || "CryptoGamer99",
-      activePublisherId: "pub-001",
     }),
   logout: () =>
     set({
       isLoggedIn: false,
-      isDevMode: false,
+      hasSetWorkspace: false,
       suiAddress: null,
       displayName: null,
-      activePublisherId: null,
+      workspaceName: "My Workspace",
     }),
-  enterDevMode: () => set({ isDevMode: true }),
-  exitDevMode: () => set({ isDevMode: false }),
-  setActivePublisher: (id) => set({ activePublisherId: id }),
+  setWorkspace: (name) => set({ workspaceName: name, hasSetWorkspace: true }),
 }));

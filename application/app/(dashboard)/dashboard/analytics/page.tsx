@@ -1,15 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useParams } from 'next/navigation';
 import { MOCK_ANALYTICS, MOCK_GAMES, MOCK_PUBLISHER_ACTIVITIES } from '@/lib/mock-data';
 import MetricCard from '@/components/shared/metric-card';
 
 export default function AnalyticsPage() {
-  const params = useParams();
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | 'all'>('all');
-  const publisherId = typeof params.publisher_id === 'string' ? params.publisher_id : '';
-  const pubGames = MOCK_GAMES.filter((g) => g.publisherId === publisherId);
+  const pubGames = MOCK_GAMES;
 
   return (
     <div>

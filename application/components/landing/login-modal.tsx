@@ -8,9 +8,10 @@ import { useAuthStore } from '@/stores/auth-store';
 interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
+  redirectTo?: string;
 }
 
-export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
+export default function LoginModal({ isOpen, onClose, redirectTo }: LoginModalProps) {
   const router = useRouter();
   const login = useAuthStore((s) => s.login);
 
@@ -37,7 +38,7 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
       setIsLoading(false);
       login(username.trim());
       onClose();
-      router.push('/inventory');
+      router.push(redirectTo || '/inventory');
     }, 800);
   };
 

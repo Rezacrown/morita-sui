@@ -1,16 +1,13 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useParams } from 'next/navigation';
 import { MOCK_PUBLISHER_ACTIVITIES, MOCK_GAMES } from '@/lib/mock-data';
 import FilterBar from '@/components/shared/filter-bar';
 
 export default function ActivityLogPage() {
-  const params = useParams();
   const [searchValue, setSearchValue] = useState('');
   const [eventFilter, setEventFilter] = useState<string | null>(null);
-  const publisherId = typeof params.publisher_id === 'string' ? params.publisher_id : '';
-  const pubGames = MOCK_GAMES.filter((g) => g.publisherId === publisherId);
+  const pubGames = MOCK_GAMES;
 
   const uniqueEventTypes = [...new Set(MOCK_PUBLISHER_ACTIVITIES.map((e) => e.eventType))];
 
