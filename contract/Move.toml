@@ -1,0 +1,3 @@
+[package]
+name = "morita"
+edition = "2024"
