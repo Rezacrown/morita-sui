@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { X, ShieldCheck, LogIn } from 'lucide-react'
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519'
 import { toBase64 } from '@mysten/sui/utils'
+import { decodeSuiPrivateKey } from '@mysten/sui/cryptography'
 import { getNonce } from '@/actions/zkp'
 
 interface LoginModalProps {

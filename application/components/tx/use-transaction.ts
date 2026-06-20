@@ -66,9 +66,7 @@ export function useTransaction() {
         const session = readSession();
         if (!session) throw new Error("Session not found. Please log in again.");
 
-        const ephemeralKeypair = Ed25519Keypair.fromSecretKey(
-          fromBase64(session.ephemeralKey),
-        );
+        const ephemeralKeypair = Ed25519Keypair.fromSecretKey(session.ephemeralKey)
 
         const proof = session.proof ?? await getZkp({
           jwt: session.jwt,

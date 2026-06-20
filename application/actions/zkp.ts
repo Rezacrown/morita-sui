@@ -12,6 +12,7 @@ export async function getZkp(input: {
   if (!enokiClient) throw new Error('ENOKI_SECRET_KEY not set')
   const publicKey = new Ed25519PublicKey(input.ephemeralPublicKey)
   return enokiClient.createZkLoginZkp({
+    network: (process.env.NEXT_PUBLIC_SUI_NETWORK || 'testnet') as 'mainnet' | 'testnet' | 'devnet',
     jwt: input.jwt,
     ephemeralPublicKey: publicKey,
     randomness: input.randomness,
