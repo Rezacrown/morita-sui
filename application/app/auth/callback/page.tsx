@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519'
-import { fromBase64, toBase64 } from '@mysten/sui/utils'
+import { toBase64 } from '@mysten/sui/utils'
 import { getZkLoginInfo, getZkp } from '@/actions/zkp'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -25,7 +25,7 @@ export default function AuthCallback() {
         const maxEpoch = sessionStorage.getItem('morita_max_epoch')
         if (!secretKey || !randomness || !maxEpoch) throw new Error('Session expired. Please try again.')
 
-        const ephemeralKeypair = Ed25519Keypair.fromSecretKey(fromBase64(secretKey))
+        const ephemeralKeypair = Ed25519Keypair.fromSecretKey(secretKey)
 
         const { address } = await getZkLoginInfo(jwt)
 
