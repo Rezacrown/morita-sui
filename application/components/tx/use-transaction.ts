@@ -11,6 +11,7 @@ import {
 import { getZkp } from "@/actions/zkp";
 import { fromBase64, toBase64 } from "@mysten/sui/utils";
 import { Transaction } from "@mysten/sui/transactions";
+import { suiClient } from "@/lib/sui/client";
 
 export type TxState = "idle" | "submitting" | "confirmed" | "error";
 
@@ -55,7 +56,7 @@ export function useTransaction() {
 
       try {
         const tx = buildTx();
-        const txBytes = toBase64(await tx.build({ onlyTransactionKind: true }));
+        const txBytes = toBase64(await tx.build({ client: suiClient, onlyTransactionKind: true }));
 
         const sponsored = await sponsorTransaction(
           txBytes,
