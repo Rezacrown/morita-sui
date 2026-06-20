@@ -29,8 +29,8 @@ export default function TxStatusToast({ state, digest, message, onDismiss, class
           {state === 'error' && (message ?? 'Transaction failed')}
         </p>
         {digest && state === 'confirmed' && (
-          <a href={`https://testnet.suivision.xyz/txblock/${digest}`} target="_blank" rel="noopener noreferrer" className="text-[10px] font-mono text-blueberry underline mt-0.5 block">
-            View on SuiVision
+          <a href={`https://suiscan.xyz/testnet/tx/${digest}`} target="_blank" rel="noopener noreferrer" className="text-[10px] font-mono text-blueberry underline mt-0.5 block">
+            {digest.slice(0, 12)}...{digest.slice(-8)}
           </a>
         )}
       </div>

@@ -87,9 +87,9 @@ export default function CreateWorkspaceModal({
             <p className="font-sans text-sm text-[#1E2044]/60 mb-2">
               {name} is now on-chain.
             </p>
-            <p className="font-mono text-[10px] text-[#1E2044]/40 break-all">
-              Tx: {txDigest?.slice(0, 30)}...
-            </p>
+            <a href={`https://suiscan.xyz/testnet/tx/${txDigest}`} target="_blank" rel="noopener noreferrer" className="font-mono text-[10px] text-blueberry underline break-all">
+              {txDigest?.slice(0, 12)}...{txDigest?.slice(-8)}
+            </a>
           </div>
         )}
 

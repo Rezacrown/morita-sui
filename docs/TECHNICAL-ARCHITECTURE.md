@@ -27,8 +27,8 @@
 ┌──────────────────────────────────────────────────────────────────┐
 │                         FRONTEND (Next.js)                       │
 │  ┌────────────┐  ┌──────────────┐  ┌───────────────────────────┐│
-│  │ Gamer Hub  │  │ Dev Dashboard│  │ auth-watcher login-modal  ││
-│  └─────┬──────┘  └──────┬───────┘  │ EnokiFlowProvider         ││
+│  │ Gamer Hub  │  │ Dev Dashboard│  │ AuthWatcher LoginModal    ││
+│  └─────┬──────┘  └──────┬───────┘  │ (no EnokiFlow — server)  ││
 │        │                │          └───────────────────────────┘│
 │        └────────────────┼──────────────────────────────┘        │
 │                    actions/*.ts  (server actions)                │
@@ -48,17 +48,19 @@
 └─────────┬──────────────────────────────┬────────────────────────┘
           │                              │
 ┌─────────┴──────────┐  ┌───────────────┴──────────────────────┐
-│   Sui Blockchain   │  │         PostgreSQL (10 tables)       │
+│   Sui Blockchain   │  │         PostgreSQL (11 tables)       │
 │  ┌───────────────┐ │  │ gamedevs, publishers, games,         │
 │  │ 4 Move modules│ │  │ item_templates, claim_codes,         │
-│  │ + Walrus      │ │  │ api_keys, user_kiosks, escrow_index, │
-│  └───────────────┘ │  │ item_cache, tx_events                │
+│  │ + Walrus      │ │  │ api_keys, user_kiosks, kiosk_listings│
+│  └───────────────┘ │  │ escrow_index, item_cache, tx_events  │
 └───────────────────┘  └──────────────────────────────────────┘
 ```
 
 ---
 
 ## Two Signing Flows
+
+**Note:** EnokiFlow is NOT used client-side. All Enoki API calls (ZKP, nonce, zkLogin info) are proxied through server actions using the private key.
 
 ### executeAsAdmin — Platform signs, no user involvement
 ```
@@ -68,8 +70,10 @@ Used for: `mint`, `redeemClaimCode`, admin operations.
 
 ### sponsorForUser + executeUserSigned — User signs, backend sponsors
 ```
-Frontend: build PTB → txBytes → Backend: Enoki sponsor (sender=user) → { bytes, digest }
-Frontend: user sign bytes → { digest, signature } → Backend: execute
+Frontend: build PTB → tx.setSender(suiAddress) → tx.build({ client, onlyTransactionKind }) → txBytes
+       → Backend: Enoki sponsor (sender=user) → { bytes, digest }
+       → Frontend: readProof from server action → construct EnokiKeypair → sign bytes → { signature }
+       → Backend: executeUserSigned(digest, signature) → finalize
 ```
 Used for: `createPublisher`, `publishGame`, `listForSale`, `buyItem`, all escrow operations.
 
