@@ -7,7 +7,4 @@ const BASE_URL = NETWORK === 'testnet'
     ? 'https://rpc.devnet.sui.io:443'
     : 'http://127.0.0.1:9000'
 
-export const suiClient = new SuiGrpcClient({
-  network: NETWORK,
-  baseUrl: BASE_URL,
-})
+export const suiClient = new SuiGrpcClient({ network: NETWORK, baseUrl: BASE_URL })
