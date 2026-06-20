@@ -61,17 +61,23 @@ morita/
 │   │   ├── layout.tsx              # Root layout
 │   │   ├── providers.tsx           # DAppKit + QueryClient providers
 │   │   └── page.tsx                # Landing page
-│   ├── actions/                    # Server Actions (backend logic)
-│   │   ├── auth.ts                 # Session management
-│   │   ├── publisher.ts            # Publisher CRUD
+│   ├── actions/                    # Server Actions (thin wrappers)
+│   │   ├── publisher.ts            # Publisher + session
 │   │   ├── game.ts                 # Game CRUD + publish
 │   │   ├── item.ts                 # Item template CRUD
 │   │   ├── claim.ts                # Claim code redemption
-│   │   ├── marketplace.ts          # Escrow + listing indexing
-│   │   ├── api-keys.ts             # API key generation + validation
-│   │   ├── analytics.ts            # Dashboard analytics
-│   │   └── admin.ts                # Admin operations (verify, pause, resume)
+│   │   ├── marketplace.ts          # Sponsor + query marketplace
+│   │   ├── api-keys.ts             # API key management
+│   │   └── user-transaction.ts     # Generic Flow B sponsor/execute
+│   ├── services/                   # Business logic layer
+│   │   ├── publisher-service.ts    # Publisher CRUD
+│   │   ├── game-service.ts         # Game CRUD + publish
+│   │   ├── item-service.ts         # Item template + claim info
+│   │   ├── claim-service.ts        # On-chain mint via executeAsAdmin
+│   │   ├── marketplace-service.ts  # Escrow index CRUD
+│   │   └── api-key-service.ts      # API key generation + validation
 │   ├── components/                 # React components
+│   │   ├── auth/                   # AuthWatcher component
 │   │   ├── landing/                # Landing page (10 components)
 │   │   └── shared/                 # Reusable (17 components)
 │   ├── lib/                        # Shared libraries
@@ -80,11 +86,9 @@ morita/
 │   │   │   └── index.ts            # DB connection singleton
 │   │   ├── sui/
 │   │   │   ├── client.ts           # SuiGrpcClient (testnet/devnet/localnet)
-│   │   │   ├── enoki-client.ts     # Enoki backend client
-│   │   │   ├── ptb-builder.ts      # PTB construction helpers
-│   │   │   └── event-indexer.ts    # gRPC event streaming (stub)
-│   │   └── walrus/
-│   │       └── index.ts            # Walrus upload + aggregator read
+│   │   │   ├── enoki-client.ts     # Enoki backend client (3 functions)
+│   │   │   └── ptb.ts              # 11 PTB construction helpers
+│   ├── __tests__/                  # Bun tests
 │   ├── stores/                     # Zustand stores (5)
 │   ├── schemas/                    # Zod validation schemas
 │   ├── drizzle.config.ts           # Drizzle Kit config
@@ -420,5 +424,16 @@ escrow::cancel_escrow
 
 ---
 
-*Last updated: June 19, 2026*
+## Doc References
+
+| File | Audience | Content |
+|------|----------|---------|
+| `docs/BUSINESS-FLOW.md` | Judges | High-level business flows with mermaid diagrams |
+| `docs/TECHNICAL-ARCHITECTURE.md` | Developers | Full architecture, file wiring, data flow |
+| `docs/AGENT-MEMORY-VAULT.md` | LLM Agents | File mapping, patterns, conventions for AI coding |
+| `docs/TESTNET-DEPLOY-GUIDE.md` | DevOps | Step-by-step testnet deployment |
+
+---
+
+*Last updated: June 21, 2026*
 

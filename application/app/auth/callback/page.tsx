@@ -13,7 +13,9 @@ export default function AuthCallback() {
     const handle = async () => {
       try {
         await flow.handleAuthCallback()
-        router.push('/inventory')
+        const redirect = sessionStorage.getItem('morita_redirect') || '/inventory'
+        sessionStorage.removeItem('morita_redirect')
+        router.push(redirect)
       } catch {
         setError('Authentication failed. Please try again.')
       }

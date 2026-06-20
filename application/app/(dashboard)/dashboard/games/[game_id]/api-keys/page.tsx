@@ -1,78 +1,179 @@
-'use client';
+/* eslint-disable react/no-unescaped-entities */
+"use client";
 
-import React, { useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { MOCK_API_KEYS } from '@/lib/mock-data';
-import StatusBadge from '@/components/shared/status-badge';
-import ConfirmModal from '@/components/shared/confirm-modal';
+import React, { useState, useCallback } from "react";
+import { useParams } from "next/navigation";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getKeys, createKey, revokeKey } from "@/actions/api-keys";
+import StatusBadge from "@/components/shared/status-badge";
+import ConfirmModal from "@/components/shared/confirm-modal";
 
 export default function APIKeysPage() {
   const params = useParams();
-  const router = useRouter();
-  const gameId = typeof params.game_id === 'string' ? params.game_id : '0';
-  const [keys, setKeys] = useState(MOCK_API_KEYS);
+  const gameId =
+    typeof params.game_id === "string" ? parseInt(params.game_id, 10) : 0;
+  const queryClient = useQueryClient();
   const [newKey, setNewKey] = useState<string | null>(null);
   const [revokeTarget, setRevokeTarget] = useState<number | null>(null);
 
-  const handleGenerate = () => {
-    const fakeKey = `morita_sk_${Math.random().toString(36).substring(2, 10)}`;
-    setNewKey(fakeKey);
-    setKeys([...keys, { id: keys.length + 1, prefix: `morita_sk_****${fakeKey.slice(-4)}`, isActive: true, lastUsedAt: null, createdAt: new Date().toISOString() }]);
-  };
+  const { data: keys = [], isLoading } = useQuery({
+    queryKey: ["api-keys", gameId],
+    queryFn: () => getKeys(gameId),
+    enabled: !!gameId,
+  });
 
-  const handleRevoke = () => {
-    if (revokeTarget !== null) {
-      setKeys(keys.map((k) => k.id === revokeTarget ? { ...k, isActive: false } : k));
+  const genMutation = useMutation({
+    mutationFn: () => createKey(gameId),
+    onSuccess: (raw) => {
+      setNewKey(raw);
+      queryClient.invalidateQueries({ queryKey: ["api-keys", gameId] });
+    },
+  });
+
+  const revokeMutation = useMutation({
+    mutationFn: (id: number) => revokeKey(id),
+    onSuccess: () => {
       setRevokeTarget(null);
-    }
-  };
+      queryClient.invalidateQueries({ queryKey: ["api-keys", gameId] });
+    },
+  });
+
+  const copyKey = useCallback(async (key: string) => {
+    try {
+      await navigator.clipboard.writeText(key);
+    } catch {}
+  }, []);
+
+  if (isLoading)
+    return (
+      <div className="flex justify-center py-12">
+        <div className="w-8 h-8 border-4 border-blueberry border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
         <div>
-          <button onClick={() => router.push(`/dashboard/games/${gameId}`)} className="font-mono text-[10px] font-extrabold uppercase tracking-wider text-blueberry hover:text-blueberry-dark mb-1 cursor-pointer">&larr; Game Detail</button>
-          <h1 className="font-display font-black text-2xl sm:text-3xl uppercase tracking-tight text-[#1E2044]">API Keys</h1>
+          <h1 className="font-display font-black text-2xl uppercase tracking-tight text-[#1E2044]">
+            API Keys
+          </h1>
+          <p className="font-sans text-sm text-[#1E2044]/60 mt-1">
+            Authenticate your game server with Morita.
+          </p>
         </div>
-        <button onClick={handleGenerate} className="px-5 py-2.5 bg-blueberry text-white border-3 border-[#1E2044] font-display font-black rounded-xl shadow-[3px_3px_0px_0px_var(--color-border-dark)] hover:-translate-y-0.5 transition-all uppercase text-xs cursor-pointer">Generate New Key</button>
+        <button
+          onClick={() => genMutation.mutate()}
+          disabled={genMutation.isPending}
+          className="px-5 py-3 bg-blueberry text-white border-3 border-[#1E2044] font-display font-black rounded-xl shadow-[3px_3px_0px_0px_var(--color-border-dark)] hover:-translate-y-0.5 transition-all uppercase text-sm cursor-pointer disabled:opacity-50"
+        >
+          {genMutation.isPending ? "Generating..." : "Generate New Key"}
+        </button>
       </div>
 
       {newKey && (
-        <div className="mb-6 p-4 bg-green-100 border-3 border-green-400 rounded-2xl shadow-[3px_3px_0px_0px_var(--color-border-dark)]">
-          <p className="text-[10px] font-mono font-extrabold uppercase tracking-wider text-green-800 mb-2">Key Generated — Copy it now</p>
-          <div className="flex gap-3 items-center">
-            <code className="flex-1 font-mono text-sm text-[#1E2044] bg-white px-4 py-2 border-2 border-green-300 rounded-xl">{newKey}</code>
-            <button onClick={() => { navigator.clipboard.writeText(newKey); setNewKey(null); }} className="px-4 py-2 bg-green-500 text-white border-2 border-[#1E2044] font-mono font-bold text-xs rounded-lg shadow-[2px_2px_0px_0px_var(--color-border-dark)] cursor-pointer">Copy</button>
+        <div className="bg-yellow-100 border-3 border-yellow-400 rounded-2xl p-5 mb-6">
+          <p className="font-mono font-bold text-xs text-yellow-800 mb-1">
+            Key generated — copy it now. You won't see it again!
+          </p>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 bg-white border-2 border-yellow-400 rounded-lg px-3 py-2 text-sm font-mono break-all">
+              {newKey}
+            </code>
+            <button
+              onClick={() => copyKey(newKey)}
+              className="px-4 py-2 bg-white border-2 border-[#1E2044] rounded-lg text-xs font-mono font-bold hover:bg-blueberry-cream transition-all cursor-pointer"
+            >
+              Copy
+            </button>
+            <button
+              onClick={() => setNewKey(null)}
+              className="text-xs font-mono font-bold text-[#1E2044]/60 hover:text-red-500 cursor-pointer"
+            >
+              Dismiss
+            </button>
           </div>
         </div>
       )}
 
-      <div className="bg-white border-3 border-[#1E2044] rounded-2xl shadow-[4px_4px_0px_0px_var(--color-border-dark)] overflow-hidden">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b-2 border-[#1E2044]/20 bg-blueberry-cream/30">
-              <th className="px-4 py-3 text-left text-[10px] font-mono font-extrabold uppercase tracking-wider text-[#1E2044]/60">Key</th>
-              <th className="px-4 py-3 text-left text-[10px] font-mono font-extrabold uppercase tracking-wider text-[#1E2044]/60">Status</th>
-              <th className="px-4 py-3 text-left text-[10px] font-mono font-extrabold uppercase tracking-wider text-[#1E2044]/60">Last Used</th>
-              <th className="px-4 py-3 text-left text-[10px] font-mono font-extrabold uppercase tracking-wider text-[#1E2044]/60">Created</th>
-              <th className="px-4 py-3" />
-            </tr>
-          </thead>
-          <tbody>
-            {keys.map((key) => (
-              <tr key={key.id} className="border-b border-[#1E2044]/10 last:border-b-0">
-                <td className="px-4 py-3 font-mono text-xs text-[#1E2044]">{key.prefix}</td>
-                <td className="px-4 py-3"><StatusBadge status={key.isActive ? 'published' : 'paused'} /></td>
-                <td className="px-4 py-3 text-xs font-mono text-[#1E2044]/60">{key.lastUsedAt ? new Date(key.lastUsedAt).toLocaleDateString() : '---'}</td>
-                <td className="px-4 py-3 text-xs font-mono text-[#1E2044]/60">{new Date(key.createdAt).toLocaleDateString()}</td>
-                <td className="px-4 py-3">{key.isActive && <button onClick={() => setRevokeTarget(key.id)} className="text-[10px] font-mono font-extrabold uppercase tracking-wider text-red-500 hover:text-red-600 cursor-pointer">Revoke</button>}</td>
+      {keys.length === 0 ? (
+        <div className="bg-white border-3 border-[#1E2044] rounded-2xl p-8 text-center">
+          <p className="font-display font-black text-sm uppercase text-[#1E2044]/60">
+            No API keys yet
+          </p>
+          <p className="font-mono text-xs text-[#1E2044]/40 mt-1">
+            Generate your first key to integrate your game server.
+          </p>
+        </div>
+      ) : (
+        <div className="bg-white border-3 border-[#1E2044] rounded-2xl overflow-hidden">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b-3 border-[#1E2044] bg-blueberry-cream/30">
+                <th className="text-left px-5 py-3 text-[10px] font-mono font-extrabold uppercase tracking-wider text-[#1E2044]/60">
+                  Key
+                </th>
+                <th className="text-left px-5 py-3 text-[10px] font-mono font-extrabold uppercase tracking-wider text-[#1E2044]/60">
+                  Status
+                </th>
+                <th className="text-left px-5 py-3 text-[10px] font-mono font-extrabold uppercase tracking-wider text-[#1E2044]/60">
+                  Last Used
+                </th>
+                <th className="text-left px-5 py-3 text-[10px] font-mono font-extrabold uppercase tracking-wider text-[#1E2044]/60">
+                  Created
+                </th>
+                <th className="text-right px-5 py-3" />
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {keys.map((k) => (
+                <tr
+                  key={k.id}
+                  className="border-b-2 border-[#1E2044]/10 hover:bg-blueberry-cream/20"
+                >
+                  <td className="px-5 py-3 font-mono text-xs text-[#1E2044]">
+                    {k.keyPrefix}
+                  </td>
+                  <td className="px-5 py-3">
+                    <StatusBadge status={k.isActive ? "published" : "draft"} />
+                  </td>
+                  <td className="px-5 py-3 font-mono text-xs text-[#1E2044]/60">
+                    {k.lastUsedAt
+                      ? new Date(k.lastUsedAt).toLocaleDateString()
+                      : "Never"}
+                  </td>
+                  <td className="px-5 py-3 font-mono text-xs text-[#1E2044]/60">
+                    {new Date(k.createdAt).toLocaleDateString()}
+                  </td>
+                  <td className="px-5 py-3 text-right">
+                    {k.isActive && (
+                      <button
+                        onClick={() => setRevokeTarget(k.id)}
+                        className="text-[10px] font-mono font-extrabold uppercase text-red-500 hover:text-red-700 cursor-pointer"
+                      >
+                        Revoke
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
-      <ConfirmModal isOpen={revokeTarget !== null} title="Revoke API Key" message="Are you sure you want to revoke this API key? This action cannot be undone. Any service using this key will lose access immediately." confirmLabel="Revoke" variant="danger" onConfirm={handleRevoke} onCancel={() => setRevokeTarget(null)} />
+      {revokeTarget !== null && (
+        <ConfirmModal
+          isOpen={true}
+          title="Revoke API Key"
+          message="This will permanently deactivate this key. Any services using it will lose access."
+          confirmLabel="Revoke"
+          onConfirm={() =>
+            revokeTarget !== null && revokeMutation.mutate(revokeTarget)
+          }
+          onCancel={() => setRevokeTarget(null)}
+        />
+      )}
     </div>
   );
 }

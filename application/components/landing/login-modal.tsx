@@ -17,7 +17,6 @@ export default function LoginModal({ isOpen, onClose, redirectTo }: LoginModalPr
   const router = useRouter()
   const flow = useEnokiFlow()
   const zkLoginState = useZkLogin() as Record<string, unknown>
-  const setWorkspace = useAuthStore((s) => s.setWorkspace)
 
   const [step, setStep] = useState<'oauth' | 'connecting' | 'workspace'>('oauth')
   const [isLoading, setIsLoading] = useState(false)
@@ -25,6 +24,9 @@ export default function LoginModal({ isOpen, onClose, redirectTo }: LoginModalPr
   const [error, setError] = useState('')
 
   const handleGoogleOAuth = useCallback(async () => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('morita_redirect', redirectTo || window.location.pathname)
+    }
     setIsLoading(true)
     setStep('connecting')
     setError('')
@@ -55,7 +57,6 @@ export default function LoginModal({ isOpen, onClose, redirectTo }: LoginModalPr
 
   const handleFinish = (e: React.FormEvent) => {
     e.preventDefault()
-    if (workspaceName.trim()) setWorkspace(workspaceName.trim())
     onClose()
     router.push(redirectTo || '/inventory')
   }
