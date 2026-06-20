@@ -74,6 +74,24 @@ export const userKiosks = pgTable('user_kiosks', {
   kioskIdIdx: uniqueIndex('user_kiosks_kiosk_id_idx').on(t.kioskId),
 }))
 
+// ── kiosk_listings ──
+export const kioskListings = pgTable('kiosk_listings', {
+  id: serial('id').primaryKey(),
+  itemObjectId: varchar('item_object_id', { length: 200 }).unique().notNull(),
+  sellerAddress: varchar('seller_address', { length: 200 }).notNull(),
+  kioskId: varchar('kiosk_id', { length: 200 }).notNull(),
+  price: varchar('price', { length: 50 }).notNull(),
+  itemName: varchar('item_name', { length: 255 }).default('').notNull(),
+  itemType: varchar('item_type', { length: 100 }).default('').notNull(),
+  rarity: varchar('rarity', { length: 100 }).default('').notNull(),
+  gameName: varchar('game_name', { length: 255 }).default('').notNull(),
+  isActive: boolean('is_active').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  sellerIdx: index('kiosk_listings_seller_idx').on(t.sellerAddress),
+  isActiveIdx: index('kiosk_listings_active_idx').on(t.isActive),
+}))
+
 // ── api_keys ──
 export const apiKeys = pgTable('api_keys', {
   id: serial('id').primaryKey(),

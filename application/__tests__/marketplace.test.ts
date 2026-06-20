@@ -25,7 +25,7 @@ describe('ptb', () => {
   })
 
   it('createPublisher returns a Transaction', () => {
-    const tx = ptb.createPublisher('Test Studio')
+    const tx = ptb.createPublisher('Test Studio', '0x1')
     expect(tx).toBeDefined()
     expect(typeof tx.build).toBe('function')
   })
@@ -41,7 +41,7 @@ describe('ptb', () => {
   })
 
   it('buyItem returns a Transaction', () => {
-    const tx = ptb.buyItem('0x1', '0x2', '0x3', 1000)
+    const tx = ptb.buyItem('0x1', '0x2', '0x3', 1000, '0x4')
     expect(tx).toBeDefined()
   })
 
@@ -56,17 +56,17 @@ describe('ptb', () => {
   })
 
   it('fulfill returns a Transaction', () => {
-    const tx = ptb.fulfill('0x1', '0x2')
+    const tx = ptb.fulfill('0x1', '0x2', '0x3')
     expect(tx).toBeDefined()
   })
 
   it('fulfillWithValue returns a Transaction', () => {
-    const tx = ptb.fulfillWithValue('0x1', '0x2', 500)
+    const tx = ptb.fulfillWithValue('0x1', '0x2', 500, '0x3')
     expect(tx).toBeDefined()
   })
 
   it('cancel returns a Transaction', () => {
-    const tx = ptb.cancel('0x1')
+    const tx = ptb.cancel('0x1', '0x2')
     expect(tx).toBeDefined()
   })
 

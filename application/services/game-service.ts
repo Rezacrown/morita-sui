@@ -75,10 +75,14 @@ export async function getGame(gameId: number) {
   const items = await db.query.itemTemplates.findMany({
     where: (t, { eq }) => eq(t.gameId, gameId),
   });
+  const pub = await db.query.publishers.findFirst({
+    where: (p, { eq }) => eq(p.id, g.publisherId),
+  });
   return {
     ...g,
     totalItems: items.length,
     publishedItems: items.filter((i) => i.status === "published").length,
+    publisherSuiId: pub?.suiPublisherId ?? "",
   };
 }
 
