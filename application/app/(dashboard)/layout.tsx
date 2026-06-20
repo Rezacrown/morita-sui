@@ -2,7 +2,6 @@
 
 import React from "react"
 import { useRouter } from "next/navigation"
-import { useEnokiFlow } from "@mysten/enoki/react"
 import { useAuthStore } from "@/stores/auth-store"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { getSession } from "@/actions/publisher"
@@ -29,7 +28,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter()
   const queryClient = useQueryClient()
   const { isLoggedIn, displayName, suiAddress, logout } = useAuthStore()
-  const flow = useEnokiFlow()
   const [showLogin, setShowLogin] = React.useState(false)
 
   const { data: session } = useQuery({
@@ -42,7 +40,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const publisherName = session?.publishers?.[0]?.name ?? "Workspace"
 
   const handleLogout = () => {
-    flow.logout()
+    sessionStorage.removeItem('morita_jwt')
+    sessionStorage.removeItem('morita_address')
+    sessionStorage.removeItem('morita_proof')
+    sessionStorage.removeItem('morita_ephemeral_key')
+    sessionStorage.removeItem('morita_randomness')
+    sessionStorage.removeItem('morita_max_epoch')
     logout()
     router.push('/')
   }
