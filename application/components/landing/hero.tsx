@@ -124,21 +124,21 @@ export default function Hero({ onOpenLoginModal, isWalletConnected }: HeroProps)
               <div className="inline-flex items-center gap-2 mb-6 px-4 py-2 bg-white border border-border-dark rounded-full shadow-[2px_2px_0px_0px_var(--color-border-dark)] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none transition-all cursor-pointer">
                 <span className="w-2 h-2 bg-blueberry rounded-full inline-block animate-pulse"></span>
                 <span className="text-[10px] sm:text-[11px] font-mono font-black text-blueberry-dark tracking-tight uppercase">
-                  ⚡ NEW SUI COMMERCE ERA : ZERO CONTRACT KNOWLEDGE REQUIRED
+                  ⚡ PLAYER-OWNED ITEMS. CROSS-GAME. ZERO GAS.
                 </span>
                 <span className="text-xs text-border-dark/40">→</span>
               </div>
 
-              {/* Magnificent Swiss Bold Heading */}
+              {/* Headline */}
               <h1 className="font-display font-black text-4xl sm:text-5xl lg:text-7xl text-border-dark tracking-tighter leading-[0.95] uppercase max-w-3xl">
-                CROSS-GAME <br />
-                <span className="text-blueberry">INVENTORY</span> &amp; COMMERCE <br />
-                <span className="underline decoration-blueberry-light decoration-8 underline-offset-4">FOR EVERYONE</span>
+                YOUR GAME ITEMS <br />
+                <span className="text-blueberry">SHOULD NOT BE TRAPPED</span> <br />
+                IN ONE GAME.
               </h1>
 
-              {/* Plain, friendly description speaking directly to both game developers and players */}
+              {/* Description */}
               <p className="mt-6 text-sm sm:text-base text-border-dark/85 leading-relaxed font-sans max-w-2xl text-center">
-                Morita connects digital game worlds on Sui. For <strong>game developers</strong>, our plug-and-play REST API integrates secondary markets, instant barters, and automated creator royalties in just minutes. For <strong>players</strong>, your hard-earned items finally live in your secure passport, letting you trade or swap items securely anywhere.
+                Morita connects digital game worlds on Sui. <strong>For game developers</strong>, deploy tokenized items with a REST API — no smart contracts to write, no gas to manage. <strong>For players</strong>, your hard-earned items live in a secure passport you control. Trade, sell, or barter across any game on the protocol.
               </p>
 
               {/* CTA Buttons */}
@@ -148,7 +148,7 @@ export default function Hero({ onOpenLoginModal, isWalletConnected }: HeroProps)
                     href="#marketplace"
                     className="px-8 py-4 bg-blueberry-light text-blueberry-dark border-3 border-border-dark text-base font-display font-black rounded-xl shadow-[5px_5px_0px_0px_var(--color-border-dark)] hover:-translate-y-1 hover:shadow-[7px_7px_0px_0px_var(--color-blueberry)] transition-all flex items-center justify-center gap-3 active:translate-y-0 cursor-pointer"
                   >
-                    <span>Go to Player Inventory</span>
+                    <span>Explore Marketplace</span>
                     <ArrowRight className="w-5 h-5 text-blueberry-dark" />
                   </a>
                 ) : (
@@ -156,17 +156,17 @@ export default function Hero({ onOpenLoginModal, isWalletConnected }: HeroProps)
                     onClick={onOpenLoginModal}
                     className="px-8 py-4 bg-blueberry text-white border-3 border-border-dark text-base font-display font-black rounded-xl shadow-[5px_5px_0px_0px_var(--color-border-dark)] hover:-translate-y-1 hover:shadow-[7px_7px_0px_0px_var(--color-blueberry-light)] hover:bg-blueberry-dark transition-all flex items-center justify-center gap-3 active:translate-y-0 cursor-pointer font-bold"
                   >
-                    <span>Connect Wallet Pass</span>
+                    <span>Sign In with Google</span>
                     <ArrowRight className="w-5 h-5 text-white" />
                   </button>
                 )}
                 
                 <a 
-                  href="#sui-tech"
+                  href="/dashboard"
                   className="px-8 py-4 bg-white text-border-dark border-2 border-border-dark text-sm font-mono font-extrabold rounded-xl shadow-[3px_3px_0px_0px_var(--color-border-dark)] hover:bg-blueberry-cream transition-all flex items-center justify-center gap-2"
                 >
-                  <span>Read the Docs</span>
-                  <span className="text-[10px] bg-blueberry-cream text-blueberry-dark font-black px-1.5 py-0.5 rounded">V1.2</span>
+                  <span>Developer Dashboard</span>
+                  <span className="text-[10px] bg-blueberry-cream text-blueberry-dark font-black px-1.5 py-0.5 rounded">BETA</span>
                 </a>
               </div>
 

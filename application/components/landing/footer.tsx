@@ -9,7 +9,7 @@ export default function Footer() {
       {/* 1. BLUEBERRY BANNER */}
       <div className="bg-blueberry border-b-3 border-border-dark py-16 px-6 text-center select-none animate-fade-in">
         <h2 className="font-display font-black text-2xl sm:text-4xl tracking-tight text-white uppercase">
-          Follow @suidevelopers for updates
+          Start building. <br />No blockchain knowledge needed.
         </h2>
       </div>
 
@@ -25,17 +25,17 @@ export default function Footer() {
 
         {/* Center: Centered Text "Follow on X" leading to the link */}
         <a 
-          href="https://x.com/suidevelopers" 
+          href="/dashboard" 
           target="_blank" 
           rel="noopener noreferrer" 
           className="flex-1 h-full flex items-center justify-center font-display font-black text-sm uppercase text-border-dark tracking-tight hover:bg-blueberry-cream transition-all cursor-pointer text-center"
         >
-          Follow on X
+          Go to Developer Dashboard
         </a>
 
         {/* Right corner: Blueberry box with white Arrow Up Right */}
         <a 
-          href="https://x.com/suidevelopers" 
+          href="https://github.com/Rezacrown/morita-sui" 
           target="_blank" 
           rel="noopener noreferrer" 
           className="h-full w-16 bg-blueberry hover:bg-blueberry-dark transition-all flex items-center justify-center text-white"

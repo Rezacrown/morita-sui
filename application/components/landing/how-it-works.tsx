@@ -22,59 +22,58 @@ export default function HowItWorks() {
       id: "step-1",
       num: "01",
       badge: "DEVELOPER SETUP",
-      title: "Simple backend payload integration",
-      description: "Developers load Morita's clean asset structures via custom REST endpoints or our straightforward SDK. There are no complicated smart contracts to write and compile manually — Morita handles all Kiosk definitions on Sui behind the scenes.",
+      title: "Register your game in 2 minutes",
+      description: "Create a publisher workspace, register your game, and define item templates through our dashboard. No smart contract to compile, no blockchain knowledge required. Morita handles all on-chain deployment — you just fill in the form.",
       icon: <Code className="w-8 h-8 text-white" />,
       bgClass: "bg-blueberry text-white",
       textColor: "text-white",
       borderColor: "border-border-dark",
-      codeSnippet: `// Register cross-game asset on Sui
-const asset = await morita.assets.register({
-  name: "Void Katana",
-  supply: 100,
-  royalties: 0.05, // 5% native Kiosk
-  storage: "walrus" // Permanent meta
-});`
+      codeSnippet: `// Mint an item via REST API
+curl -X POST /api/v1/game/42/item/mint \\
+  -H "Authorization: Bearer morita_sk_live" \\
+  -d '{ "item_template_id": 7 }'
+// Returns: { claim_url: "morita.app/claim?code=AB12-CD34" }`
     },
     {
       id: "step-2",
       num: "02",
       badge: "PLAYER ONBOARDING",
-      title: "Google / Twitch Social Authenticated pass",
-      description: "Players log in securely using their existing Google or Twitch credentials via Mysten Labs' Enoki zkLogin infrastructure. A customized virtual Sui account is instantly generated for them on the client. Zero tricky extensions, seed phrases, or gas calculations are exposed to the browser.",
+      title: "Claim items with one click",
+      description: "Game servers generate claim URLs via our API. Players open the link, sign in with Google (via Enoki zkLogin), and claim their item in one click. A Sui wallet is created on the fly — no extension, no seed phrase, no gas fees.",
       icon: <Users className="w-8 h-8 text-blueberry-dark" />,
       bgClass: "bg-blueberry-light text-blueberry-dark",
       textColor: "text-blueberry-dark",
       borderColor: "border-border-dark",
-      codeSnippet: `// Initialize social login via Enoki
-const wallet = await morita.player.zkLogin({
-  provider: 'google',
-  redirectUrl: 'https://morita.app/profile'
-});`
+      codeSnippet: `// Player clicks claim URL
+// 1. Google OAuth → zkLogin wallet created
+// 2. Item minted on-chain, transferred to player
+// 3. Appears in inventory instantly
+// All gas sponsored by Morita`
     },
     {
       id: "step-3",
       num: "03",
-      badge: "COMMERCE ESCROW",
-      title: "Atomic barter swap execution",
-      description: "Players trade, auction, or barter digital assets seamlessly across participating games. Every single swap runs inside a secure, on-chain Sui escrow mechanism. Either both properties shift ownership coordinates simultaneously, or the entire block is discarded instantly — guaranteeing zero counterparty trust issues.",
+      badge: "COMMERCE & BARTER",
+      title: "Trade items across any game",
+      description: "List items for sale with optional creator royalties enforced by Sui Kiosk. Or create a barter escrow — lock your item, set conditions, and swap atomically in a single transaction. Both parties get their items or the trade never happens. Zero counterparty risk.",
       icon: <Shuffle className="w-8 h-8 text-blueberry-dark" />,
       bgClass: "bg-blueberry-cream text-border-dark",
       textColor: "text-border-dark",
       borderColor: "border-border-dark",
-      codeSnippet: `// Create escrow atomic transfer payload
-const barterTx = await morita.swap.initiate({
-  sellerItem: "kiosk_obj_99a8x",
-  buyerItem: "kiosk_obj_1120p",
-  escrowFee: "sponsored_gas"
-});`
+      codeSnippet: `// Create barter escrow
+const escrow = await morita.swap.lock({
+  item: "0x...",       // Your GameItem
+  want: { rarity: "Legendary" }
+});
+// Fulfiller matches conditions
+// Both items swap in 1 transaction`
     },
     {
       id: "step-4",
       num: "04",
-      badge: "ROYALTY RECOVERY",
-      title: "Sui Kiosk core rule enforcement",
-      description: "Every asset listed for sale on the marketplace utilizes our native Sui Kiosk architecture. Because transfer parameters live directly at the ledger's core consensus layer, other players and external traders cannot bypass the game developer's defined secondary marketplace royalties.",
+      badge: "ROYALTY ENFORCEMENT",
+      title: "Automatic creator royalties",
+      description: "Every item listed for sale uses native Sui Kiosk transfer rules. Developer royalties are enforced at the protocol level — not by contract logic that can be bypassed. When an item sells, royalties split atomically in the same transaction. No marketplaces can circumvent them.",
       icon: <ShieldAlert className="w-8 h-8 text-white" />,
       bgClass: "bg-border-dark text-white",
       textColor: "text-white",
@@ -92,30 +91,26 @@ const barterTx = await morita.swap.initiate({
         {/* Section Header */}
         <div className="text-center max-w-2xl mx-auto mb-16 sm:mb-20">
           <span className="text-xs font-mono font-black tracking-widest bg-blueberry text-white px-3 py-1.5 rounded uppercase">
-            THE INTEGRATION ENGINE
+            HOW MORITA WORKS
           </span>
           <h2 className="font-display font-black text-3xl sm:text-5xl lg:text-6xl mt-6 uppercase text-border-dark">
-            HOW IT WORKS
+            FROM DEV TO PLAYER
           </h2>
           <p className="font-sans text-sm sm:text-base text-border-dark/80 mt-4 leading-relaxed">
-            Morita bridges the gap between decentralized ledgers and premium gameplay. 
-            A seamless bridge constructed of 4 core engines working hand-in-hand.
+            Four steps from developer onboarding to player trading. No blockchain experience required.
           </p>
         </div>
 
-        {/* 2x2 Clean Responsive Grid Layout */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-10 max-w-6xl mx-auto">
           {steps.map((step) => (
             <div 
               key={step.id}
               className={`rounded-2xl border-3 ${step.borderColor} ${step.bgClass} p-6 sm:p-10 flex flex-col justify-between shadow-[6px_6px_0px_0px_var(--color-border-dark)] hover:shadow-none hover:translate-x-1 hover:translate-y-1 transition-all relative group overflow-hidden`}
             >
-              {/* Giant card watermark */}
               <span className="absolute right-6 top-4 font-display font-black text-6xl sm:text-8xl opacity-10 select-none tracking-tighter pointer-events-none">
                 {step.num}
               </span>
 
-              {/* Top Row content */}
               <div>
                 <div className="flex items-center justify-between mb-6">
                   <span className="text-[9px] font-mono font-black tracking-widest border border-current px-2.5 py-1 rounded-full uppercase leading-none">
@@ -135,7 +130,6 @@ const barterTx = await morita.swap.initiate({
                 </p>
               </div>
 
-              {/* Conditional render of custom interactive visual payload or code blocks */}
               <div className="mt-6 pt-6 border-t border-current/10">
                 {step.codeSnippet ? (
                   <div className="rounded-xl bg-[#090B1B]/80 p-4 font-mono text-[10.5px] sm:text-xs overflow-x-auto text-blue-200 border border-white/5">
@@ -143,7 +137,7 @@ const barterTx = await morita.swap.initiate({
                   </div>
                 ) : (
                   <div className="flex justify-between items-center text-[10px] font-mono tracking-widest uppercase opacity-65">
-                    <span>GUARANTEED SECONDARY MARKET COMMERCE</span>
+                    <span>ATOMIC ROYALTY SPLIT AT PROTOCOL LEVEL</span>
                     <span className="text-base">🛡️</span>
                   </div>
                 )}

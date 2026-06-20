@@ -33,14 +33,14 @@ export default function SandboxPlayground() {
         {/* Header Block of Sandbox Playgrounds */}
         <div className="text-center max-w-3xl mx-auto mb-20 md:mb-28">
           <span className="text-xs font-mono font-black tracking-widest bg-blueberry text-white px-3 py-1.5 rounded-full uppercase inline-block border-2 border-border-dark shadow-[1.5px_1.5px_0px_0px_var(--color-border-dark)]">
-            🎬 CORE PROTOCOL WALKTHROUGH
+            🎬 PROTOCOL WALKTHROUGH
           </span>
           <h2 className="font-display font-black text-3xl sm:text-5xl lg:text-6xl mt-5 uppercase text-border-dark tracking-tighter leading-none">
-            HOW MORITA WORKS <br />
+            HOW IT WORKS <br />
             <span className="text-blueberry">UNDER THE HOOD</span>
           </h2>
           <p className="font-sans text-sm sm:text-base text-border-dark/75 mt-4 leading-relaxed max-w-2xl mx-auto">
-            Scroll down to explore how Morita bridges game state differences, processes gas-sponsored barter swaps, and deploys high-performance ledger access for developers and players.
+            From social login to atomic cross-game barter — here is exactly how Morita processes every transaction.
           </p>
         </div>
 
@@ -79,19 +79,19 @@ export default function SandboxPlayground() {
               </div>
               
               <h3 className="font-display font-black text-2xl lg:text-4xl text-border-dark uppercase tracking-tight">
-                No Extension. <br />No Seed Phrase. <br />
-                <span className="text-blueberry">Just Social Identity.</span>
+                Sign In with Google. <br />No Wallet Required. <br />
+                <span className="text-blueberry">Zero Gas Fees.</span>
               </h3>
               
               <p className="font-sans text-sm sm:text-base text-border-dark/80 leading-relaxed">
-                Traditional Web3 barriers immediately turn players away. Morita implements Mysten Labs&apos; <strong>Enoki zkLogin framework</strong>. 
-                Players authenticate using their preexisting secure Google, Discord, or twitch login credentials.
+                Traditional Web3 onboarding turns players away before they see your game. Morita uses Mysten Labs&apos; <strong>Enoki zkLogin</strong>.
+                Players authenticate with their existing Google account. A Sui wallet is generated client-side inside a secure JWT session — no extensions, no seed phrases, no gas calculations.
               </p>
               
               <div className="p-4 bg-white/50 border border-dashed border-border-dark/20 rounded-xl font-mono text-[11px] text-border-dark/70 space-y-2">
-                <span className="font-bold text-blueberry uppercase block">🔐 ZERO-KNOWLEDGE PROOF IN ACTION</span>
+                <span className="font-bold text-blueberry uppercase block">🔐 HOW IT WORKS</span>
                 <p className="leading-snug">
-                  Morita converts JWT social session tokens directly into temporary cryptographic SUI keys. The client executes and processes ledger requests securely in the background.
+                  A social JWT is converted into temporary cryptographic Sui keys. The client signs transactions in the background. All gas is sponsored by the platform via Enoki.
                 </p>
               </div>
             </motion.div>
