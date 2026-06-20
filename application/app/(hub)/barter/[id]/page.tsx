@@ -104,7 +104,11 @@ export default function BarterDetailPage() {
             <CheckCircle className="w-5 h-5 text-green-600" />
             <div>
               <h3 className="font-display font-black text-lg uppercase tracking-tight text-[#1E2044]">{confirmAction === 'cancel' ? 'Cancelled!' : 'Fulfilled!'}</h3>
-              <p className="font-mono text-xs text-[#1E2044]/60 mt-1">Tx: {txDigest?.slice(0, 20)}...</p>
+              <p className="font-mono text-xs text-[#1E2044]/60 mt-1">
+                <a href={`https://suiscan.xyz/testnet/tx/${txDigest}`} target="_blank" rel="noopener noreferrer" className="text-blueberry underline">
+                  {txDigest?.slice(0, 12)}...{txDigest?.slice(-8)}
+                </a>
+              </p>
             </div>
           </div>
         </div>

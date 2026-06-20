@@ -56,6 +56,7 @@ export function useTransaction() {
 
       try {
         const tx = buildTx();
+        tx.setSender(suiAddress);
         const txBytes = toBase64(await tx.build({ client: suiClient, onlyTransactionKind: true }));
 
         const sponsored = await sponsorTransaction(

@@ -6,15 +6,16 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { detail, update as updateGame } from '@/actions/game'
 import { list as listItems } from '@/actions/item'
 import { finalizeGamePublish } from '@/actions/publish-game'
+import { getOnChainItems } from '@/actions/onchain-items'
 import { publish } from '@/lib/sui/ptb'
 import { useTransaction } from '@/components/tx/use-transaction'
 import StatusBadge from '@/components/shared/status-badge'
 import ItemCard from '@/components/shared/item-card'
 import ConfirmModal from '@/components/shared/confirm-modal'
 import EmptyState from '@/components/shared/empty-state'
-import { Loader2, CheckCircle, XCircle } from 'lucide-react'
+import { Loader2, CheckCircle, XCircle, ExternalLink } from 'lucide-react'
 
-type TabType = 'overview' | 'items' | 'api-keys' | 'analytics' | 'activity'
+type TabType = 'overview' | 'items' | 'api-keys' | 'analytics' | 'activity' | 'onchain'
 
 function GameOverviewForm({ game }: { game: NonNullable<Awaited<ReturnType<typeof detail>>> }) {
   const router = useRouter()
@@ -80,7 +81,11 @@ function GameOverviewForm({ game }: { game: NonNullable<Awaited<ReturnType<typeo
             <CheckCircle className="w-5 h-5 text-green-600" />
             <div>
               <h3 className="font-display font-black text-lg uppercase tracking-tight text-[#1E2044]">Published!</h3>
-              <p className="font-mono text-xs text-[#1E2044]/60 mt-1">Tx: {txDigest?.slice(0, 20)}...</p>
+              <p className="font-mono text-xs text-[#1E2044]/60 mt-1">
+                <a href={`https://suiscan.xyz/testnet/tx/${txDigest}`} target="_blank" rel="noopener noreferrer" className="text-blueberry underline">
+                  {txDigest?.slice(0, 12)}...{txDigest?.slice(-8)}
+                </a>
+              </p>
             </div>
           </div>
         </div>
@@ -153,6 +158,12 @@ export default function GameDetailPage() {
     enabled: !!gameId && activeTab === 'items',
   })
 
+  const { data: onChainItems = [] } = useQuery({
+    queryKey: ['onchain-items', game?.suiGameId],
+    queryFn: () => getOnChainItems(game!.suiGameId!),
+    enabled: !!game?.suiGameId && activeTab === 'onchain',
+  })
+
   if (isLoading) {
     return <div className="flex justify-center py-12"><div className="w-8 h-8 border-4 border-blueberry border-t-transparent rounded-full animate-spin" /></div>
   }
@@ -179,9 +190,9 @@ export default function GameDetailPage() {
       </div>
 
       <div className="flex gap-2 mb-8 overflow-x-auto pb-2">
-        {(['overview', 'items', 'api-keys', 'analytics', 'activity'] as const).map((key) => {
-          const labels: Record<TabType, string> = { overview: 'Overview', items: `Items (${items.length})`, 'api-keys': 'API Keys', analytics: 'Analytics', activity: 'Activity' }
-          const disabled = (key === 'api-keys' || key === 'analytics') && !isPublished
+        {(['overview', 'items', 'api-keys', 'analytics', 'activity', 'onchain'] as const).map((key) => {
+          const labels: Record<TabType, string> = { overview: 'Overview', items: `Items (${items.length})`, 'api-keys': 'API Keys', analytics: 'Analytics', activity: 'Activity', onchain: `On-Chain (${onChainItems.length})` }
+          const disabled = (key === 'api-keys' || key === 'analytics' || key === 'onchain') && !isPublished
           return (
             <button key={key} onClick={() => !disabled && setActiveTab(key)}
               className={`px-5 py-2.5 font-display font-black text-xs uppercase rounded-xl border-3 border-[#1E2044] transition-all shrink-0 ${
@@ -225,6 +236,43 @@ export default function GameDetailPage() {
         <div>
           <h2 className="font-display font-black text-lg uppercase tracking-tight text-[#1E2044] mb-4">Activity Log</h2>
           <p className="font-mono text-xs text-[#1E2044]/60">Coming soon with event indexing.</p>
+        </div>
+      )}
+
+      {activeTab === 'onchain' && isPublished && (
+        <div>
+          <h2 className="font-display font-black text-lg uppercase tracking-tight text-[#1E2044] mb-4">On-Chain Items</h2>
+          <p className="font-sans text-sm text-[#1E2044]/60 mb-6">Items that have been minted on-chain for this game ({onChainItems.length} total).</p>
+          {onChainItems.length === 0 ? (
+            <EmptyState title="No On-Chain Items" description="Items appear here when players claim them via a claim URL." />
+          ) : (
+            <div className="bg-white border-3 border-[#1E2044] rounded-2xl shadow-[4px_4px_0px_0px_var(--color-border-dark)] overflow-hidden">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b-2 border-[#1E2044]/20 bg-blueberry-cream/30">
+                    <th className="px-6 py-3 text-left text-[10px] font-mono font-extrabold uppercase tracking-wider text-[#1E2044]/60">Object ID</th>
+                    <th className="px-6 py-3 text-left text-[10px] font-mono font-extrabold uppercase tracking-wider text-[#1E2044]/60">Item ID</th>
+                    <th className="px-6 py-3 text-left text-[10px] font-mono font-extrabold uppercase tracking-wider text-[#1E2044]/60">Type</th>
+                    <th className="px-6 py-3 text-left text-[10px] font-mono font-extrabold uppercase tracking-wider text-[#1E2044]/60">Rarity</th>
+                    <th className="px-6 py-3 text-left text-[10px] font-mono font-extrabold uppercase tracking-wider text-[#1E2044]/60">Owner</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {onChainItems.map((oc) => (
+                    <tr key={oc.objectId} className="border-b border-[#1E2044]/10 last:border-b-0">
+                      <td className="px-6 py-3 font-mono text-xs text-blueberry">
+                        <a href={`https://suiscan.xyz/testnet/object/${oc.objectId}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:underline">{oc.objectId.slice(0, 10)}...<ExternalLink className="w-3 h-3" /></a>
+                      </td>
+                      <td className="px-6 py-3 font-mono text-xs text-[#1E2044]">{oc.itemId}</td>
+                      <td className="px-6 py-3"><span className="text-[10px] font-mono font-extrabold uppercase tracking-wider text-blueberry bg-blueberry-cream px-2 py-0.5 rounded-md border border-blueberry/30">{oc.itemType}</span></td>
+                      <td className="px-6 py-3"><span className="text-[10px] font-mono font-extrabold uppercase tracking-wider text-[#1E2044] bg-blueberry-cream px-2 py-0.5 rounded-md border border-[#1E2044]/20">{oc.rarity}</span></td>
+                      <td className="px-6 py-3 font-mono text-xs text-[#1E2044]/60">{oc.objectId.slice(0, 8)}...</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
     </div>

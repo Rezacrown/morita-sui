@@ -91,7 +91,7 @@ export default function SellModal({ isOpen, itemObjectId, itemName, itemType, ra
           <div className="text-center py-4">
             <CheckCircle className="w-10 h-10 text-green-500 mx-auto mb-4" />
             <h3 className="font-display font-black text-xl uppercase tracking-tight text-[#1E2044] mb-2">Listed for Sale!</h3>
-            <p className="font-mono text-[10px] text-[#1E2044]/40 break-all">{txDigest?.slice(0, 30)}...</p>
+            <a href={`https://suiscan.xyz/testnet/tx/${txDigest}`} target="_blank" rel="noopener noreferrer" className="font-mono text-[10px] text-blueberry underline break-all">{txDigest?.slice(0, 12)}...{txDigest?.slice(-8)}</a>
           </div>
         )}
 
