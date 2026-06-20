@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { useEnokiFlow } from "@mysten/enoki/react";
 import { EnokiKeypair } from "@mysten/enoki";
 import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
 import { useAuthStore } from "@/stores/auth-store";
@@ -21,8 +20,19 @@ type TxResult = {
   error?: string;
 };
 
+function readSession() {
+  if (typeof window === "undefined") return null;
+  const jwt = sessionStorage.getItem("morita_jwt");
+  const address = sessionStorage.getItem("morita_address");
+  const proofRaw = sessionStorage.getItem("morita_proof");
+  const ephemeralKeyRaw = sessionStorage.getItem("morita_ephemeral_key");
+  const maxEpoch = sessionStorage.getItem("morita_max_epoch");
+  const randomness = sessionStorage.getItem("morita_randomness");
+  if (!jwt || !address || !proofRaw || !ephemeralKeyRaw || !maxEpoch || !randomness) return null;
+  return { jwt, address, proof: JSON.parse(proofRaw), ephemeralKey: ephemeralKeyRaw, maxEpoch: parseInt(maxEpoch), randomness };
+}
+
 export function useTransaction() {
-  const flow = useEnokiFlow();
   const suiAddress = useAuthStore((s) => s.suiAddress);
   const [state, setState] = useState<TxState>("idle");
   const [digest, setDigest] = useState<string | undefined>();
@@ -53,13 +63,11 @@ export function useTransaction() {
           targets,
         );
 
-        const session = await flow.getSession();
-        if (!session?.jwt || !session.ephemeralKeyPair) {
-          throw new Error("Session missing required data");
-        }
+        const session = readSession();
+        if (!session) throw new Error("Session not found. Please log in again.");
 
         const ephemeralKeypair = Ed25519Keypair.fromSecretKey(
-          fromBase64(session.ephemeralKeyPair),
+          fromBase64(session.ephemeralKey),
         );
 
         const proof = session.proof ?? await getZkp({
@@ -94,7 +102,7 @@ export function useTransaction() {
         return { state: "error", error: msg };
       }
     },
-    [suiAddress, flow],
+    [suiAddress],
   );
 
   const reset = useCallback(() => {

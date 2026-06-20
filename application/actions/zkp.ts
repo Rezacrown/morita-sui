@@ -18,3 +18,17 @@ export async function getZkp(input: {
     maxEpoch: input.maxEpoch,
   })
 }
+
+export async function getNonce(ephemeralPublicKey: string, network: string) {
+  if (!enokiClient) throw new Error('ENOKI_SECRET_KEY not set')
+  const publicKey = new Ed25519PublicKey(ephemeralPublicKey)
+  return enokiClient.createZkLoginNonce({
+    network: network as 'mainnet' | 'testnet' | 'devnet',
+    ephemeralPublicKey: publicKey,
+  })
+}
+
+export async function getZkLoginInfo(jwt: string) {
+  if (!enokiClient) throw new Error('ENOKI_SECRET_KEY not set')
+  return enokiClient.getZkLogin({ jwt })
+}

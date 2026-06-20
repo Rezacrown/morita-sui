@@ -2,26 +2,56 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useEnokiFlow } from '@mysten/enoki/react'
+import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519'
+import { fromBase64, toBase64 } from '@mysten/sui/utils'
+import { getZkLoginInfo, getZkp } from '@/actions/zkp'
+import { useAuthStore } from '@/stores/auth-store'
 
 export default function AuthCallback() {
   const router = useRouter()
-  const flow = useEnokiFlow()
+  const setAccount = useAuthStore((s) => s.setAccount)
   const [error, setError] = useState('')
 
   useEffect(() => {
     const handle = async () => {
       try {
-        await flow.handleAuthCallback()
+        const hash = window.location.hash.slice(1)
+        const params = new URLSearchParams(hash)
+        const jwt = params.get('id_token')
+        if (!jwt) throw new Error('Missing ID token')
+
+        const secretKey = sessionStorage.getItem('morita_ephemeral_key')
+        const randomness = sessionStorage.getItem('morita_randomness')
+        const maxEpoch = sessionStorage.getItem('morita_max_epoch')
+        if (!secretKey || !randomness || !maxEpoch) throw new Error('Session expired. Please try again.')
+
+        const ephemeralKeypair = Ed25519Keypair.fromSecretKey(fromBase64(secretKey))
+
+        const { address } = await getZkLoginInfo(jwt)
+
+        const proof = await getZkp({
+          jwt,
+          ephemeralPublicKey: toBase64(ephemeralKeypair.getPublicKey().toRawBytes()),
+          randomness,
+          maxEpoch: parseInt(maxEpoch),
+        })
+
+        sessionStorage.setItem('morita_jwt', jwt)
+        sessionStorage.setItem('morita_address', address)
+        sessionStorage.setItem('morita_proof', JSON.stringify(proof))
+        sessionStorage.setItem('morita_max_epoch', maxEpoch)
+
+        setAccount({ suiAddress: address, displayName: '' })
+
         const redirect = sessionStorage.getItem('morita_redirect') || '/inventory'
         sessionStorage.removeItem('morita_redirect')
         router.push(redirect)
-      } catch {
-        setError('Authentication failed. Please try again.')
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Authentication failed')
       }
     }
     handle()
-  }, [flow, router])
+  }, [])
 
   if (error) {
     return (

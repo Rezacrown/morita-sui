@@ -1,19 +1,20 @@
-# Testnet Deployment Guide — Morita Contracts
+# Testnet Deployment Guide — Morita (Updated)
 
 ## Prerequisites
 - Sui CLI v1.73.0 (installed via linuxbrew di WSL)
-- Admin wallet sudah di-fund dari faucet: `0x8aabd8a2fe756e6a13744382d193541ea4be72e022d61b130bea7c7df017bb47`
-- Move contracts sudah fix (6 issues resolved)
+- Admin wallet: `0x8aabd8a2fe756e6a13744382d193541ea4be72e022d61b130bea7c7df017bb47` (harus di-fund)
+- Neon DB udah connect (`bun run db:push` sukses)
 
 ---
 
-## Step 1 — Setup Testnet Environment
+## Step 1 — Setup WSL + Testnet
 
 ```bash
 # Masuk WSL
 wsl
+cd ~/Desktop/hackathons/sui-overflow/contract
 
-# Cek current env
+# Cek current env, pastiin testnet
 sui client active-env
 
 # Kalau belum testnet:
@@ -23,149 +24,136 @@ sui client switch --env testnet
 
 ---
 
-## Step 2 — Update Move.toml with Testnet
+## Step 2 — Uncomment Testnet di Move.toml
 
-```bash
-# Di contract/Move.toml, pastikan [environments] punya testnet
-sui move build --build-env testnet
+Edit `contract/Move.toml`:
+
+```toml
+[environments]
+testnet = "testnet"       # <- uncomment ini
+devnet = "devnet"
+local = "local"
 ```
-
-> **Note:** Move.toml harus punya entry `testnet = "testnet"` di `[environments]`.
 
 ---
 
-## Step 3 — Get Testnet SUI for Admin Wallet
+## Step 3 — Get Testnet SUI untuk Admin Wallet
 
 ```bash
-# Cek balance dulu
+# Cek balance
 sui client gas --address 0x8aabd8a2fe756e6a13744382d193541ea4be72e022d61b130bea7c7df017bb47
 
-# Kalau 0, faucet
+# Kalo 0, faucet (repeat 2-3x)
 curl -X POST https://faucet.testnet.sui.io/v1/gas \
   -H "Content-Type: application/json" \
   -d '{"FixedAmountRequest":{"recipient":"0x8aabd8a2fe756e6a13744382d193541ea4be72e022d61b130bea7c7df017bb47"}}'
 ```
 
-Repeat 2-3x biar dapet cukup gas (publish butuh ~50 MIST).
-
 ---
 
-## Step 4 — Publish Contract
+## Step 4 — Build + Publish Contract
 
 ```bash
-# Switch ke testnet
-sui client switch --env testnet
+# Build dulu
+sui move build
 
-# Publish
+# Publish ke testnet
 sui client publish --gas-budget 50000000
 ```
 
-Output akan nampilin:
-
+**Output — catat ini:**
 ```
-Transaction Digest: ...
-╭──────────────────────────────────────────────────────╮
-│ Package ID: 0x<new_package_id>                       │
-│ Object Changes:                                       │
-│   - Created: 0x<admin_cap_id> (AdminCap)             │
-╰──────────────────────────────────────────────────────╯
+Package ID: 0x<NEW_PACKAGE_ID>
+...
+Created Objects:
+  - 0x<ADMIN_CAP_ID> (AdminCap)
+  - 0x<PUBLISHER_ID> (Publisher — dari OTW init)
 ```
 
-**Catat:**
-- `Package ID` — ganti `NEXT_PUBLIC_PACKAGE_ID` di `.env.local`
-- `AdminCap ID` — simpan untuk admin operations
+3 IDs yang dicatat:
+| ID | Variable `.env.local` |
+|----|----------------------|
+| `Package ID` | `NEXT_PUBLIC_PACKAGE_ID` |
+| `AdminCap ID` | `NEXT_PUBLIC_ADMIN_CAP` |
+| `Publisher ID` | (dipakai di Step 5) |
 
 ---
 
 ## Step 5 — Deploy TransferPolicy for GameItem
 
-`kiosk_ext::buy_item` butuh `TransferPolicy<GameItem>` untuk konfirmasi transfer. Deploy via CLI PTB menggunakan `sui::transfer_policy::new`:
-
 ```bash
-# Ganti <PACKAGE_ID> dengan hasil publish
-# Publisher object didapat dari output publish (otomatis terbit kalau package punya init)
+# Ganti <NEW_PACKAGE_ID> dan <PUBLISHER_ID> sesuai hasil publish
 sui client ptb \
-  --move-call <PACKAGE_ID>::kiosk_ext::get_tp <PACKAGE_ID> \
+  --move-call <NEW_PACKAGE_ID>::kiosk_ext::create_transfer_policy <PUBLISHER_ID> \
   --gas-budget 20000000
 ```
 
-Atau langsung panggil `sui::transfer_policy::new`:
-```bash
-sui client ptb \
-  --assign publisher @<PUBLISHER_OBJECT_ID> \
-  --move-call sui::transfer_policy::new<GameItem> publisher \
-  --gas-budget 20000000
-```
-
-Tapi cara paling gampang: **tambah fungsi helper di kiosk_ext.move** yang nerima `Publisher`:
-
-```move
-public fun create_transfer_policy(pub: &Publisher, ctx: &mut TxContext): TransferPolicy<GameItem> {
-    let (tp, _cap) = tp::new<GameItem>(pub, ctx);
-    tp::share(tp)
-}
-```
+Catat **TransferPolicy ID** (dari `Created Objects`) → `NEXT_PUBLIC_TRANSFER_POLICY_ID`
 
 ---
 
-## Step 6 — Update .env.local
+## Step 6 — Update `.env.local`
+
+Buka `application/.env.local`, ganti:
 
 ```env
-NEXT_PUBLIC_SUI_NETWORK=testnet
-NEXT_PUBLIC_PACKAGE_ID=<package_id_dari_step_4>
-NEXT_PUBLIC_TRANSFER_POLICY_ID=<transfer_policy_id_dari_step_5>
-ADMIN_PRIVATE_KEY=suiprivkey1qp6lddxyvkrews...
-NEXT_PUBLIC_PLATFORM_ADDR=0x8aabd8a2fe756e6a13744382d193541ea4be72e022d61b130bea7c7df017bb47
+NEXT_PUBLIC_PACKAGE_ID=<NEW_PACKAGE_ID>
+NEXT_PUBLIC_ADMIN_CAP=<ADMIN_CAP_ID>
+NEXT_PUBLIC_TRANSFER_POLICY_ID=<TRANSFER_POLICY_ID>
 ```
 
 ---
 
 ## Step 7 — Update Enoki Portal Whitelist
 
-Di https://portal.enoki.mystenlabs.com, update **Allowed Move Call Targets** dengan Package ID baru:
+Buka https://portal.enoki.mystenlabs.com
+
+**Allowed Move Call Targets** — tambah 18 target (ganti `<PACKAGE>` dengan Package ID baru):
 
 ```
-<NEXT_PUBLIC_PACKAGE_ID>::registry::create_publisher
-<NEXT_PUBLIC_PACKAGE_ID>::registry::initiate_publish
-<NEXT_PUBLIC_PACKAGE_ID>::registry::finalize_publish
-<NEXT_PUBLIC_PACKAGE_ID>::registry::update_game
-<NEXT_PUBLIC_PACKAGE_ID>::registry::verify_publisher
-<NEXT_PUBLIC_PACKAGE_ID>::registry::pause_game
-<NEXT_PUBLIC_PACKAGE_ID>::registry::resume_game
-<NEXT_PUBLIC_PACKAGE_ID>::item::mint
-<NEXT_PUBLIC_PACKAGE_ID>::item::burn
-<NEXT_PUBLIC_PACKAGE_ID>::kiosk_ext::list_for_sale
-<NEXT_PUBLIC_PACKAGE_ID>::kiosk_ext::buy_item
-<NEXT_PUBLIC_PACKAGE_ID>::escrow::lock_item_for_any
-<NEXT_PUBLIC_PACKAGE_ID>::escrow::lock_item_for_target
-<NEXT_PUBLIC_PACKAGE_ID>::escrow::fulfill_escrow
-<NEXT_PUBLIC_PACKAGE_ID>::escrow::fulfill_escrow_with_value
-<NEXT_PUBLIC_PACKAGE_ID>::escrow::cancel_escrow
+<PACKAGE>::registry::create_publisher
+<PACKAGE>::registry::initiate_publish
+<PACKAGE>::registry::finalize_publish
+<PACKAGE>::registry::update_game
+<PACKAGE>::registry::verify_publisher
+<PACKAGE>::registry::pause_game
+<PACKAGE>::registry::resume_game
+<PACKAGE>::item::mint
+<PACKAGE>::item::burn
+<PACKAGE>::kiosk_ext::list_for_sale
+<PACKAGE>::kiosk_ext::buy_item
+<PACKAGE>::kiosk_ext::create_transfer_policy
+<PACKAGE>::escrow::lock_item_for_any
+<PACKAGE>::escrow::lock_item_for_target
+<PACKAGE>::escrow::fulfill_escrow
+<PACKAGE>::escrow::fulfill_escrow_with_value
+<PACKAGE>::escrow::cancel_escrow
+0x2::kiosk::new
 ```
 
-Also add `0x8aabd8a2fe756e6a13744382d193541ea4be72e022d61b130bea7c7df017bb47` ke **Allowed Addresses**.
-
----
-
-## Step 8 — Verify
-
-```bash
-# Cek object di testnet explorer
-sui client object <TRANSFER_POLICY_ID>
-sui client object <ADMIN_CAP_ID>
-
-# Buka di browser:
-https://testnet.suiscan.xyz/object/<PACKAGE_ID>
+**Allowed Addresses** — tambah:
+```
+0x8aabd8a2fe756e6a13744382d193541ea4be72e022d61b130bea7c7df017bb47
 ```
 
 ---
 
-## Rollback (Kalau Gagal)
+## Step 8 — Jalanin App
 
 ```bash
-# Ganti env
-sui client switch --env devnet
-
-# Publish ulang dengan gas lebih besar
-sui client publish --gas-budget 100000000
+cd application
+bun run dev
 ```
+
+Buka http://localhost:3000 → login → modal "Create Workspace" muncul → sukses.
+
+---
+
+## Kalau Gagal
+
+| Error | Kemungkinan | Fix |
+|-------|-------------|-----|
+| `403` dari Enoki | Whitelist belum keupdate | Cek Step 7 |
+| `InsufficientGas` | Admin wallet kosong | Faucet lagi (Step 3) |
+| `Package not found` | Package ID salah | Cek Step 4 output |
+| `db:push` error | `.env` gak kebaca | `bun --env-file=.env.local run db:push` |
