@@ -4,7 +4,7 @@ import React from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/stores/auth-store'
 import { useQuery } from '@tanstack/react-query'
-import { list as listItems } from '@/actions/item'
+import { getInventory } from '@/actions/inventory'
 import ItemCard from '@/components/shared/item-card'
 import EmptyState from '@/components/shared/empty-state'
 
@@ -14,7 +14,7 @@ export default function InventoryPage() {
 
   const { data: items = [] } = useQuery({
     queryKey: ['inventory', suiAddress],
-    queryFn: () => listItems(0),
+    queryFn: () => getInventory(suiAddress!),
     enabled: !!suiAddress,
   })
 
@@ -34,7 +34,7 @@ export default function InventoryPage() {
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
         {items.map((item) => (
-          <ItemCard key={item.id} item={{ name: item.name, gameName: '', itemType: item.itemType, rarity: item.rarity, status: item.status as 'draft' | 'published' }} onClick={() => router.push(`/inventory/${item.id}`)} />
+          <ItemCard key={item.objectId} item={{ name: item.name || item.itemType, gameName: item.gameName, itemType: item.itemType, rarity: item.rarity, imageUrl: item.imageUrl, status: 'published' }} onClick={() => router.push(`/inventory/${item.objectId}`)} />
         ))}
       </div>
     </div>

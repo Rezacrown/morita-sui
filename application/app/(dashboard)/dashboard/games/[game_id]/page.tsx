@@ -5,24 +5,26 @@ import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { detail, update as updateGame } from '@/actions/game'
 import { list as listItems } from '@/actions/item'
-import { usePublisherStore } from '@/stores/publisher-store'
+import { finalizeGamePublish } from '@/actions/publish-game'
+import { publish } from '@/lib/sui/ptb'
+import { useTransaction } from '@/components/tx/use-transaction'
 import StatusBadge from '@/components/shared/status-badge'
 import ItemCard from '@/components/shared/item-card'
 import ConfirmModal from '@/components/shared/confirm-modal'
-import PublishProgressBar from '@/components/shared/publish-progress-bar'
 import EmptyState from '@/components/shared/empty-state'
+import { Loader2, CheckCircle, XCircle } from 'lucide-react'
 
 type TabType = 'overview' | 'items' | 'api-keys' | 'analytics' | 'activity'
 
 function GameOverviewForm({ game }: { game: NonNullable<Awaited<ReturnType<typeof detail>>> }) {
   const router = useRouter()
   const queryClient = useQueryClient()
-  const { isPublishing, publishProgress, setPublishing, setProgress } = usePublisherStore()
   const [name, setName] = useState(game.name)
   const [description, setDescription] = useState(game.description ?? '')
   const [genre, setGenre] = useState(game.genre ?? '')
   const [websiteUrl, setWebsiteUrl] = useState(game.websiteUrl ?? '')
   const [showPublishConfirm, setShowPublishConfirm] = useState(false)
+  const { state: txState, digest: txDigest, error: txError, execute: executeTx, reset: resetTx } = useTransaction()
 
   const isDraft = game.status === 'draft'
   const isPublished = game.status === 'published'
@@ -32,29 +34,24 @@ function GameOverviewForm({ game }: { game: NonNullable<Awaited<ReturnType<typeo
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['game', game.id] }),
   })
 
-  const handlePublish = async () => {
+  const handlePublishConfirm = async () => {
     setShowPublishConfirm(false)
-    setPublishing(true)
-    setProgress([
-      { step: 'Upload Assets', done: false },
-      { step: 'Deploy on-chain', done: false },
-      { step: 'Done', done: false },
-    ])
-
-    try {
-      // TODO: wire publish via useTransaction when ready
-      // await publishGameComplete(game.id, suiGameId, capId)
-      setProgress([
-        { step: 'Upload Assets', done: true },
-        { step: 'Deploy on-chain', done: true },
-        { step: 'Done', done: true },
-      ])
-      queryClient.invalidateQueries({ queryKey: ['game', game.id] })
-    } catch {
-      setPublishing(false)
-      setProgress([])
-    } finally {
-      setPublishing(false)
+    const result = await executeTx(
+      () => publish(
+        game.publisherSuiId,
+        game.name,
+        process.env.NEXT_PUBLIC_PLATFORM_ADDR!,
+      ),
+      [
+        `${process.env.NEXT_PUBLIC_PACKAGE_ID}::registry::initiate_publish`,
+        `${process.env.NEXT_PUBLIC_PACKAGE_ID}::registry::finalize_publish`,
+      ],
+    )
+    if (result.state === 'confirmed' && result.digest) {
+      const finalResult = await finalizeGamePublish(game.id, result.digest)
+      if (finalResult.success) {
+        queryClient.invalidateQueries({ queryKey: ['game', game.id] })
+      }
     }
   }
 
@@ -62,19 +59,43 @@ function GameOverviewForm({ game }: { game: NonNullable<Awaited<ReturnType<typeo
     <div>
       {isDraft && (
         <div className="mb-6 flex justify-end">
-          <button onClick={() => setShowPublishConfirm(true)} disabled={isPublishing} className="px-6 py-3 bg-green-500 text-white border-3 border-[#1E2044] font-display font-black rounded-xl shadow-[3px_3px_0px_0px_var(--color-border-dark)] hover:-translate-y-0.5 transition-all uppercase text-sm cursor-pointer disabled:opacity-50">
-            {isPublishing ? 'Publishing...' : 'Publish Game'}
+          <button onClick={() => setShowPublishConfirm(true)} disabled={txState === 'submitting'} className="px-6 py-3 bg-green-500 text-white border-3 border-[#1E2044] font-display font-black rounded-xl shadow-[3px_3px_0px_0px_var(--color-border-dark)] hover:-translate-y-0.5 transition-all uppercase text-sm cursor-pointer disabled:opacity-50">
+            {txState === 'submitting' ? 'Publishing...' : 'Publish Game'}
           </button>
         </div>
       )}
 
-      {isPublishing && (
+      {txState === 'submitting' && (
         <div className="mb-8 p-6 bg-white border-3 border-[#1E2044] rounded-2xl shadow-[4px_4px_0px_0px_var(--color-border-dark)]">
-          <h3 className="font-display font-black text-lg uppercase tracking-tight text-[#1E2044] mb-4">Publishing in Progress</h3>
-          <PublishProgressBar steps={publishProgress.map((p, i) => ({
-            label: p.step,
-            status: p.done ? 'done' as const : i === publishProgress.findIndex((s) => !s.done) ? 'active' as const : 'pending' as const,
-          }))} />
+          <div className="flex items-center gap-3">
+            <Loader2 className="w-5 h-5 text-blueberry animate-spin" />
+            <h3 className="font-display font-black text-lg uppercase tracking-tight text-[#1E2044]">Publishing {game.name}...</h3>
+          </div>
+        </div>
+      )}
+
+      {txState === 'confirmed' && (
+        <div className="mb-8 p-6 bg-green-50 border-3 border-green-500 rounded-2xl shadow-[4px_4px_0px_0px_var(--color-border-dark)]">
+          <div className="flex items-center gap-3">
+            <CheckCircle className="w-5 h-5 text-green-600" />
+            <div>
+              <h3 className="font-display font-black text-lg uppercase tracking-tight text-[#1E2044]">Published!</h3>
+              <p className="font-mono text-xs text-[#1E2044]/60 mt-1">Tx: {txDigest?.slice(0, 20)}...</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {txState === 'error' && (
+        <div className="mb-8 p-6 bg-red-50 border-3 border-red-500 rounded-2xl shadow-[4px_4px_0px_0px_var(--color-border-dark)]">
+          <div className="flex items-center gap-3">
+            <XCircle className="w-5 h-5 text-red-600" />
+            <div>
+              <h3 className="font-display font-black text-lg uppercase tracking-tight text-[#1E2044]">Publish Failed</h3>
+              <p className="font-mono text-xs text-red-600 mt-1">{txError}</p>
+              <button onClick={resetTx} className="mt-2 px-4 py-1.5 bg-white border-2 border-[#1E2044] font-display font-black rounded-xl text-xs uppercase cursor-pointer">Try Again</button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -109,7 +130,7 @@ function GameOverviewForm({ game }: { game: NonNullable<Awaited<ReturnType<typeo
         </div>
       </div>
 
-      <ConfirmModal isOpen={showPublishConfirm} title="Publish Game" message={`You are about to publish "${game.name}". This will deploy the game on-chain.`} confirmLabel="Confirm Publish" onConfirm={handlePublish} onCancel={() => setShowPublishConfirm(false)} />
+      <ConfirmModal isOpen={showPublishConfirm} title="Publish Game" message={`You are about to publish "${game.name}". This will deploy the game on-chain.`} confirmLabel="Confirm Publish" onConfirm={handlePublishConfirm} onCancel={() => setShowPublishConfirm(false)} />
     </div>
   )
 }

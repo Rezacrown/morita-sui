@@ -8,6 +8,13 @@
       "when": 1781847544630,
       "tag": "0000_condemned_venus",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1781977079965,
+      "tag": "0001_fancy_dragon_lord",
+      "breakpoints": true
     }
   ]
 }

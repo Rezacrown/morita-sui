@@ -4,6 +4,8 @@ import React from "react"
 import { useRouter } from "next/navigation"
 import { useEnokiFlow } from "@mysten/enoki/react"
 import { useAuthStore } from "@/stores/auth-store"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { getSession } from "@/actions/publisher"
 import {
   LayoutDashboard,
   Swords,
@@ -13,6 +15,7 @@ import {
 } from "lucide-react"
 import Sidebar from "@/components/shared/sidebar"
 import LoginModal from "@/components/landing/login-modal"
+import CreateWorkspaceModal from "@/components/dashboard/create-workspace-modal"
 
 const sidebarItems = [
   { label: "Overview", href: "/dashboard", icon: <LayoutDashboard className="w-4 h-4" /> },
@@ -24,9 +27,19 @@ const sidebarItems = [
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const { isLoggedIn, displayName, suiAddress, logout } = useAuthStore()
   const flow = useEnokiFlow()
   const [showLogin, setShowLogin] = React.useState(false)
+
+  const { data: session } = useQuery({
+    queryKey: ["session", suiAddress],
+    queryFn: () => getSession(suiAddress!),
+    enabled: !!suiAddress,
+  })
+
+  const hasPublisher = (session?.publishers?.length ?? 0) > 0
+  const publisherName = session?.publishers?.[0]?.name ?? "Workspace"
 
   const handleLogout = () => {
     flow.logout()
@@ -49,7 +62,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-screen bg-brand-bg flex">
-      <Sidebar items={sidebarItems} publisherName="Workspace" className="hidden lg:flex" />
+      <Sidebar items={sidebarItems} publisherName={publisherName} className="hidden lg:flex" />
       <div className="flex-1 flex flex-col min-h-screen">
         <header className="sticky top-0 z-50 bg-brand-bg/90 backdrop-blur-md border-b-3 border-[#1E2044] px-4 sm:px-6 py-3">
           <div className="flex items-center justify-between gap-4">
@@ -66,6 +79,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </header>
         <main className="flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
       </div>
+
+      <CreateWorkspaceModal
+        isOpen={!hasPublisher && !!session}
+        onCreated={() => queryClient.invalidateQueries({ queryKey: ["session", suiAddress] })}
+        onCancel={() => {}}
+      />
     </div>
   )
 }

@@ -20,6 +20,29 @@ export type EscrowRow = {
   cancelledAt: Date | null
 }
 
+async function resolveOfferedItem(offerItemBlobId: string | null, offerGameId: number | null) {
+  let name = ''
+  let rarity = ''
+  let gameName = ''
+  if (offerItemBlobId) {
+    const cached = await db.query.itemCache.findFirst({ where: (c, { eq }) => eq(c.blobId, offerItemBlobId) })
+    if (cached) {
+      name = cached.name
+      const attrs = cached.attributes as Record<string, string> | null
+      rarity = attrs?.rarity ?? ''
+      if (cached.gameId && !offerGameId) {
+        const g = await db.query.games.findFirst({ where: (g, { eq }) => eq(g.id, cached.gameId) })
+        if (g) gameName = g.name
+      }
+    }
+  }
+  if (offerGameId && !gameName) {
+    const g = await db.query.games.findFirst({ where: (g, { eq }) => eq(g.id, offerGameId) })
+    if (g) gameName = g.name
+  }
+  return { name, rarity, gameName }
+}
+
 export async function getListings(filters: {
   type?: string
   gameId?: number
@@ -43,7 +66,13 @@ export async function getListings(filters: {
     offset,
   })
 
-  return { listings: rows.map(r => ({ ...r, type: 'barter' as const })), total: rows.length }
+  const listings = await Promise.all(rows.map(async (r) => ({
+    ...r,
+    type: 'barter' as const,
+    offeredItem: await resolveOfferedItem(r.offerItemBlobId, r.offerGameId),
+  })))
+
+  return { listings, total: rows.length }
 }
 
 export async function getListingDetail(listingId: string) {
@@ -51,7 +80,11 @@ export async function getListingDetail(listingId: string) {
     where: (e, { eq }) => eq(e.escrowId, listingId),
   })
   if (!row) return null
-  return { ...row, type: 'barter' as const }
+  return {
+    ...row,
+    type: 'barter' as const,
+    offeredItem: await resolveOfferedItem(row.offerItemBlobId, row.offerGameId),
+  }
 }
 
 export async function createEscrowRecord(
